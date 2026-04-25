@@ -13,8 +13,8 @@
       <a href="#">GitHub</a>
     </div>
     <div class="chrome-cta">
-      <a class="btn btn-ghost" href="#">Sign in</a>
-      <a class="btn btn-primary" href="#">Start free</a>
+      <a class="btn btn-ghost" href="#/login">Sign in</a>
+      <a class="btn btn-primary" href="#/signup">Start free</a>
     </div>
   </div>
 </nav>

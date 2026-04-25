@@ -5,7 +5,7 @@
   <h2>Plant a flag. It's free.</h2>
   <p>Free forever for 10 envs and 1M evaluations / month. MIT-licensed. Self-host if you want to.</p>
   <div class="ctas">
-    <a class="btn btn-primary" href="#">Create workspace</a>
+    <a class="btn btn-primary" href="#/signup">Create workspace</a>
     <a class="btn btn-ghost" href="#">github.com/flagpole/flagpole</a>
   </div>
 </div>
