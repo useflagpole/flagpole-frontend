@@ -1,11 +1,12 @@
 <script lang="ts">
   import { projectStore } from '../../project.svelte'
 
-  let { activeProject, projectName, orgName, onSelectProject }: {
+  let { activeProject, projectName, orgName, onSelectProject, onOpenSettings }: {
     activeProject: string
     projectName: string
     orgName: string
     onSelectProject: (id: string) => void
+    onOpenSettings: (id: string) => void
   } = $props()
 
   const count = $derived(projectStore.projects.length)
@@ -35,13 +36,16 @@
         <div class="empty mono">No projects yet</div>
       {:else}
         {#each projectStore.projects as p}
-          <button class="project-row" class:active={activeProject === String(p.id)} onclick={() => onSelectProject(String(p.id))}>
-            <span class="proj-name mono">{p.name}</span>
-            <div class="env-tags">
-              {#each parseEnvs(p.environments) as e}<span class="tag">{e}</span>{/each}
-            </div>
-            {#if activeProject === String(p.id)}<span class="pill on">active</span>{/if}
-          </button>
+          <div class="project-wrap">
+            <button class="project-row" class:active={activeProject === String(p.id)} onclick={() => onSelectProject(String(p.id))}>
+              <span class="proj-name mono">{p.name}</span>
+              <div class="env-tags">
+                {#each parseEnvs(p.environments) as e}<span class="tag">{e}</span>{/each}
+              </div>
+              {#if activeProject === String(p.id)}<span class="pill on">active</span>{/if}
+            </button>
+            <button class="settings-btn" onclick={() => onOpenSettings(String(p.id))}>⚙</button>
+          </div>
         {/each}
       {/if}
     </div>
@@ -100,6 +104,12 @@
     color: var(--ink-3);
     text-align: center;
     padding: 64px 24px;
+  }
+
+  .project-wrap {
+    display: flex;
+    align-items: stretch;
+    gap: 6px;
   }
 
   .project-row {
@@ -181,6 +191,28 @@
 
   .btn-primary:hover {
     opacity: 0.85;
+  }
+
+  .settings-btn {
+    background: var(--bg-2);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    color: var(--ink-3);
+    font-size: 16px;
+    padding: 0 12px;
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity .15s, color .15s, background .15s;
+    flex-shrink: 0;
+  }
+
+  .project-wrap:hover .settings-btn {
+    opacity: 1;
+  }
+
+  .settings-btn:hover {
+    color: var(--ink);
+    background: var(--bg-3);
   }
 
   .mono {

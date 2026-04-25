@@ -12,6 +12,7 @@
   import SegmentDetail from './pages/SegmentDetail.svelte'
   import AuditLog      from './pages/AuditLog.svelte'
   import Settings      from './pages/Settings.svelte'
+  import Snackbar      from './Snackbar.svelte'
 
   let page          = $state('dashboard')
   let activeProject = $state<number | null>(null)
@@ -171,6 +172,7 @@
         projectName={activeProjectName}
         orgName={orgStore.activeOrg?.name ?? ''}
         onSelectProject={id => { activeProject = Number(id); nav('flags') }}
+        onOpenSettings={id => { activeProject = Number(id); nav('settings') }}
       />
     {:else if page === 'flags'}
       <Flags
@@ -197,6 +199,8 @@
     {/if}
   </main>
 </div>
+
+<Snackbar />
 
 {/if}
 

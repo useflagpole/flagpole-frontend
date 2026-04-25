@@ -1,11 +1,95 @@
 <script lang="ts">
-  import { projects, sdkKeys } from '../data'
+  import { projectStore } from '../../project.svelte'
+  import { orgStore } from '../../org.svelte'
+  import { session } from '../../session.svelte'
+  import { sdkKeys } from '../data'
+  import {
+    listEnvironments,
+    createEnvironment,
+    renameEnvironment,
+    deleteEnvironment,
+  } from '../../api/environments'
+  import ModalDeleteEnv from '../ModalDeleteEnv.svelte'
+  import { notify } from '../../toasts.svelte'
 
   let { activeProject, projectName }: { activeProject: string; projectName: string } = $props()
 
-  const proj = $derived(projects.find(p => p.id === activeProject) ?? projects[0])
-  let copied = $state<string | null>(null)
+  const proj = $derived(projectStore.projects.find(p => String(p.id) === activeProject))
 
+  const ownerName = $derived(`${session.firstName ?? ''} ${session.lastName ?? ''}`.trim())
+
+  let nameInput    = $state('')
+  let originalName = $state('')
+  $effect(() => { nameInput = proj?.name ?? ''; originalName = proj?.name ?? '' })
+
+  // environments
+  const orgId  = $derived(orgStore.activeId)
+  const projId = $derived(proj?.id ?? 0)
+
+  let envs        = $state<string[]>([])
+  let envsLoading = $state(false)
+  let envError    = $state<string | null>(null)
+
+  $effect(() => {
+    if (orgId && projId) {
+      envsLoading = true
+      listEnvironments(orgId, projId).then(r => {
+        envsLoading = false
+        if (r.ok) envs = r.data
+        else envError = r.message
+      })
+    }
+  })
+
+  let editingEnv = $state<string | null>(null)
+  let editVal    = $state('')
+  let editError  = $state<string | null>(null)
+
+  const startEdit = (name: string) => { editingEnv = name; editVal = name; editError = null }
+  const cancelEdit = () => { editingEnv = null; editVal = ''; editError = null }
+
+  const saveRename = async (oldName: string) => {
+    if (!orgId || !projId) return
+    const r = await renameEnvironment(orgId, projId, oldName, editVal.trim())
+    if (r.ok) {
+      envs = r.data
+      editingEnv = null
+      notify.success('Environment renamed', `"${oldName}" → "${editVal.trim()}"`)
+    } else {
+      editError = r.message
+      notify.error('Rename failed', r.message)
+    }
+  }
+
+  let adding      = $state(false)
+  let newEnvName  = $state('')
+  let addError    = $state<string | null>(null)
+
+  const submitAdd = async () => {
+    if (!orgId || !projId || !newEnvName.trim()) return
+    const name = newEnvName.trim()
+    const r = await createEnvironment(orgId, projId, name)
+    if (r.ok) {
+      envs = r.data
+      adding = false
+      newEnvName = ''
+      notify.success('Environment created', `"${name}" is ready to use.`)
+    } else {
+      addError = r.message
+      notify.error('Create failed', r.message)
+    }
+  }
+
+  let deletingEnv = $state<string | null>(null)
+
+  const removeEnv = async (): Promise<string | null> => {
+    if (!orgId || !projId || !deletingEnv) return null
+    const r = await deleteEnvironment(orgId, projId, deletingEnv)
+    if (r.ok) { envs = r.data; return null }
+    return r.message
+  }
+
+  let copied = $state<string | null>(null)
   const copyKey = (id: string, val: string) => {
     navigator.clipboard?.writeText(val).catch(() => {})
     copied = id
@@ -22,6 +106,9 @@
   </header>
 
   <div class="content">
+    {#if !proj}
+      <div class="empty mono">No project selected</div>
+    {:else}
     <div class="settings-col">
 
       <div class="panel">
@@ -32,38 +119,73 @@
               <div class="setting-title">Project name</div>
               <div class="setting-sub mono">Used in the SDK and dashboard</div>
             </div>
-            <input class="text-input" value={proj.name} />
+            <input class="text-input" bind:value={nameInput} />
           </div>
           <div class="setting-row">
             <div class="setting-label">
               <div class="setting-title">Owner</div>
-              <div class="setting-sub mono">Workspace that owns this project</div>
+              <div class="setting-sub mono">Account that owns this project</div>
             </div>
-            <input class="text-input" value={proj.owner} readonly />
+            <span class="owner-text mono">{ownerName}</span>
           </div>
           <div class="save-row">
-            <button class="btn btn-primary btn-sm">Save</button>
+            <button class="btn btn-primary btn-sm" disabled={nameInput.trim() === originalName}>Save</button>
           </div>
         </div>
       </div>
 
       <div class="panel">
         <div class="panel-bar">
-          <span>Environments</span>
-          <button class="btn btn-ghost btn-sm">+ Add environment</button>
+          <span>Environments <span class="env-count">{envs.length} / 5</span></span>
+          {#if !adding && envs.length < 5}
+            <button class="btn btn-ghost btn-sm" onclick={() => { adding = true; addError = null }}>+ Add environment</button>
+          {/if}
         </div>
         <div class="env-list">
-          {#each proj.env as e}
-            <div class="env-row">
-              <div class="env-dot" class:prod={e === 'production'}></div>
-              <span class="env-name mono">{e}</span>
-              <span class="tag mono">{e === 'production' ? 'protected' : 'mutable'}</span>
-              <button class="btn btn-ghost btn-sm">Rename</button>
-              {#if e !== 'production'}
-                <button class="btn btn-danger btn-sm">Delete</button>
-              {/if}
-            </div>
-          {/each}
+          {#if envsLoading}
+            <div class="env-empty mono">Loading…</div>
+          {:else if envError}
+            <div class="env-empty mono" style="color:#e07070">{envError}</div>
+          {:else}
+            {#each envs as e}
+              <div class="env-row">
+                <div class="env-dot" class:prod={e === 'production'}></div>
+                {#if editingEnv === e}
+                  <input
+                    class="env-input mono"
+                    bind:value={editVal}
+                    onkeydown={ev => { if (ev.key === 'Enter') saveRename(e); if (ev.key === 'Escape') cancelEdit() }}
+                    autofocus
+                  />
+                  {#if editError}<span class="inline-err mono">{editError}</span>{/if}
+                  <button class="btn btn-primary btn-sm" onclick={() => saveRename(e)}>Save</button>
+                  <button class="btn btn-ghost btn-sm" onclick={cancelEdit}>Cancel</button>
+                {:else}
+                  <span class="env-name mono">{e}</span>
+                  <span class="tag mono">{e === 'production' ? 'protected' : 'mutable'}</span>
+                  {#if e !== 'production'}
+                    <button class="btn btn-ghost btn-sm" onclick={() => startEdit(e)}>Rename</button>
+                    <button class="btn btn-danger btn-sm" onclick={() => deletingEnv = e}>Delete</button>
+                  {/if}
+                {/if}
+              </div>
+            {/each}
+            {#if adding}
+              <div class="env-row">
+                <div class="env-dot"></div>
+                <input
+                  class="env-input mono"
+                  bind:value={newEnvName}
+                  placeholder="environment name"
+                  onkeydown={ev => { if (ev.key === 'Enter') submitAdd(); if (ev.key === 'Escape') { adding = false; newEnvName = '' } }}
+                  autofocus
+                />
+                {#if addError}<span class="inline-err mono">{addError}</span>{/if}
+                <button class="btn btn-primary btn-sm" onclick={submitAdd}>Add</button>
+                <button class="btn btn-ghost btn-sm" onclick={() => { adding = false; newEnvName = ''; addError = null }}>Cancel</button>
+              </div>
+            {/if}
+          {/if}
         </div>
       </div>
 
@@ -120,8 +242,18 @@
       </div>
 
     </div>
+    {/if}
   </div>
 </div>
+
+{#if deletingEnv}
+  <ModalDeleteEnv
+    envName={deletingEnv}
+    projectName={proj?.name ?? ''}
+    onConfirm={removeEnv}
+    onClose={() => deletingEnv = null}
+  />
+{/if}
 
 <style>
   .page-shell {
@@ -154,6 +286,13 @@
 
   .content {
     padding: 0 32px 64px;
+  }
+
+  .empty {
+    font: 400 13px 'Geist Mono', ui-monospace, monospace;
+    color: var(--ink-3);
+    padding: 64px 24px;
+    text-align: center;
   }
 
   .settings-col {
@@ -215,6 +354,8 @@
 
   .save-row {
     padding-top: 4px;
+    display: flex;
+    justify-content: flex-end;
   }
 
   .text-input {
@@ -230,6 +371,11 @@
 
   .text-input:focus {
     border-color: var(--line-2);
+  }
+
+  .owner-text {
+    font-size: 13px;
+    color: var(--ink-2);
   }
 
   .env-list {
@@ -257,6 +403,35 @@
 
   .env-dot.prod {
     background: var(--accent);
+  }
+
+  .env-count {
+    color: var(--ink-4);
+    margin-left: 6px;
+  }
+
+  .env-empty {
+    font-size: 12px;
+    color: var(--ink-3);
+    padding: 16px 0;
+    text-align: center;
+  }
+
+  .env-input {
+    flex: 1;
+    background: var(--bg-3);
+    border: 1px solid var(--line-2);
+    border-radius: 5px;
+    color: var(--ink);
+    font-size: 12px;
+    padding: 5px 8px;
+    outline: none;
+    min-width: 0;
+  }
+
+  .inline-err {
+    font-size: 11px;
+    color: #e07070;
   }
 
   .env-name {
@@ -350,6 +525,11 @@
 
   .btn-primary:hover {
     opacity: 0.85;
+  }
+
+  .btn-primary:disabled {
+    opacity: 0.35;
+    cursor: default;
   }
 
   .btn-ghost {
