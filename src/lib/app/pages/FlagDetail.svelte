@@ -3,6 +3,7 @@
   import EvalChart from '../EvalChart.svelte'
   import Toggle from '../Toggle.svelte'
   import ActionBadge from '../ActionBadge.svelte'
+  import FlagIcon from '../FlagIcon.svelte'
 
   let { activeProject, projectName, activeFlag, nav }: {
     activeProject: string
@@ -46,7 +47,7 @@
     <span class="eyebrow">{projectName}</span>
     <div class="title-row">
       <button class="back-btn" onclick={() => nav('flags')}>←</button>
-      <h1 class="mono">{flag.key}</h1>
+      <h1><span class="page-icon"><FlagIcon size={22} /></span> <span class="title-prefix">flags /</span> <span class="mono">{flag.key}</span></h1>
       <div class="actions">
         <button class="btn btn-danger">Archive</button>
       </div>
@@ -219,6 +220,11 @@
     font-size: clamp(22px, 2vw, 28px);
     letter-spacing: -0.02em;
     line-height: 1.1;
+  }
+
+  .title-prefix {
+    color: var(--ink-3);
+    font-weight: 400;
   }
 
   .actions {

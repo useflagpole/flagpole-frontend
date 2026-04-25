@@ -17,7 +17,7 @@
   <header class="page-header">
     <div>
       <span class="eyebrow">{projectName}</span>
-      <h1>Settings</h1>
+      <h1><span class="page-icon">⚙</span> settings</h1>
     </div>
   </header>
 

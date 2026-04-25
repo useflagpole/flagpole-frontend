@@ -108,6 +108,14 @@ header, main, footer, nav {
 .btn-ghost { background: transparent; color: var(--ink); border-color: var(--line-2); }
 .btn-ghost:hover { border-color: var(--ink); }
 .btn .mono { font-size: 12px; color: var(--ink-3); }
+.page-icon {
+  color: var(--ink-2);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  flex-shrink: 0;
+}
 
 .panel { background: var(--bg-2); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
 .panel-bar {

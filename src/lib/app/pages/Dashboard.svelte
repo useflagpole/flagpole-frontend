@@ -23,7 +23,7 @@
   <header class="page-header">
     <div class="page-title-area">
       <span class="eyebrow">{projectName}</span>
-      <h1>Dashboard</h1>
+      <h1><span class="page-icon">▲</span> dashboard</h1>
     </div>
   </header>
 

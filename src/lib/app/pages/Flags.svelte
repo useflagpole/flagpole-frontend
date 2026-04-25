@@ -1,6 +1,7 @@
 <script lang="ts">
   import { projects, flags } from '../data'
   import RolloutBar from '../RolloutBar.svelte'
+  import FlagIcon from '../FlagIcon.svelte'
 
   let { activeProject, projectName, nav, onSelectFlag }: {
     activeProject: string
@@ -23,7 +24,7 @@
   <header class="page-header">
     <div>
       <span class="eyebrow">{projectName}</span>
-      <h1>Flags</h1>
+      <h1><span class="page-icon"><FlagIcon size={22} /></span> flags</h1>
     </div>
     <div class="actions">
       <button class="btn btn-ghost">Import</button>

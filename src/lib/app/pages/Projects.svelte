@@ -20,7 +20,7 @@
   <header class="page-header">
     <div>
       <span class="eyebrow">{eyebrow}</span>
-      <h1>Projects</h1>
+      <h1><span class="page-icon">▦</span> projects</h1>
     </div>
     <div class="actions">
       <button class="btn btn-primary">+ New project</button>

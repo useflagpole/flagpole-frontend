@@ -16,7 +16,7 @@
   <header class="page-header">
     <div>
       <span class="eyebrow">{projectName}</span>
-      <h1>Segments</h1>
+      <h1><span class="page-icon">◎</span> segments</h1>
     </div>
     <div class="actions">
       <button class="btn btn-primary">+ New segment</button>

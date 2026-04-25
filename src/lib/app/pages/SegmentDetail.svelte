@@ -55,7 +55,7 @@
     <span class="eyebrow">{projectName}</span>
     <div class="title-row">
       <button class="back-btn" onclick={() => nav('segments')}>←</button>
-      <h1 class="mono">{seg.name}</h1>
+      <h1><span class="page-icon">◎</span> <span class="mono">{seg.name}</span></h1>
       <div class="actions">
         <button class="btn btn-danger">Delete</button>
         <button class="btn btn-primary">Save segment</button>
@@ -240,6 +240,11 @@
     font-size: clamp(22px, 2vw, 28px);
     letter-spacing: -0.02em;
     line-height: 1.1;
+  }
+
+  .title-prefix {
+    color: var(--ink-3);
+    font-weight: 400;
   }
 
   .actions {

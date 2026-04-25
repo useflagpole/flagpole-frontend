@@ -2,6 +2,7 @@
   import { session } from '../session.svelte'
   import { orgStore } from '../org.svelte'
   import { projectStore } from '../project.svelte'
+  import FlagIcon      from './FlagIcon.svelte'
   import Onboarding    from './Onboarding.svelte'
   import Dashboard     from './pages/Dashboard.svelte'
   import Projects      from './pages/Projects.svelte'
@@ -56,11 +57,11 @@
   })
 
   const navItems = [
-    { id: 'dashboard', label: 'Dashboard', icon: '▦' },
-    { id: 'flags',     label: 'Flags',     icon: '⚑' },
-    { id: 'segments',  label: 'Segments',  icon: '◎' },
-    { id: 'auditlog',  label: 'Audit log', icon: '≡' },
-    { id: 'settings',  label: 'Settings',  icon: '⚙' },
+    { id: 'dashboard', label: 'dashboard', icon: '▲' },
+    { id: 'flags',     label: 'flags',     icon: '⚑' },
+    { id: 'segments',  label: 'segments',  icon: '◎' },
+    { id: 'auditlog',  label: 'audit log', icon: '≡' },
+    { id: 'settings',  label: 'settings',  icon: '⚙' },
   ]
 </script>
 
@@ -83,7 +84,7 @@
 
     <div class="project-switcher">
       <button class="section-label" class:active={page === 'projects'} onclick={() => nav('projects')}>
-        <span>⊞</span> Projects
+        <span>▦</span> projects
       </button>
       {#if projectStore.loading}
         <span class="proj-loading mono">loading…</span>
@@ -107,7 +108,11 @@
           class:active={page === item.id}
           onclick={() => nav(item.id)}
         >
-          <span class="nav-icon" class:accent={page === item.id}>{item.icon}</span>
+          {#if item.id === 'flags'}
+            <span class="nav-icon" class:accent={page === item.id}><FlagIcon size={16} /></span>
+          {:else}
+            <span class="nav-icon" class:accent={page === item.id} class:lg={item.id === 'settings'}>{item.icon}</span>
+          {/if}
           {item.label}
         </button>
       {/each}
@@ -270,6 +275,11 @@
     border-bottom: 1px solid var(--line);
   }
 
+  .section-label span {
+    font-size: 16px;
+    line-height: 1;
+  }
+
   .section-label {
     width: 100%;
     display: flex;
@@ -357,11 +367,15 @@
   }
 
   .nav-icon {
-    font-size: 12px;
+    font-size: 16px;
     color: var(--ink-3);
-    width: 16px;
+    width: 20px;
     text-align: center;
     flex-shrink: 0;
+  }
+
+  .nav-icon.lg {
+    font-size: 20px;
   }
 
   .nav-icon.accent {

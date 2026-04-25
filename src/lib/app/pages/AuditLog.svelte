@@ -20,7 +20,7 @@
   <header class="page-header">
     <div>
       <span class="eyebrow">{projectName}</span>
-      <h1>Audit log</h1>
+      <h1><span class="page-icon">≡</span> audit log</h1>
     </div>
     <div class="actions">
       <button class="btn btn-ghost">Export CSV</button>
