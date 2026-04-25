@@ -46,19 +46,19 @@
     error = null
 
     if (!submittedOrgDto) {
-      const r = await createOrganization(orgName.trim(), session.token!)
+      const r = await createOrganization(orgName.trim())
       if (!r.ok) { error = r.message; submitting = false; return }
-      submittedOrgDto = r.org
+      submittedOrgDto = r.data
     }
 
     if (!submittedProjDone) {
       const name = projName.trim() || 'my-project'
-      const r = await createProject(submittedOrgDto.id, name, session.token!)
+      const r = await createProject(submittedOrgDto.id, name)
       if (!r.ok) { error = r.message; submitting = false; return }
       submittedProjDone = true
     }
 
-    const r = await setOrganizationPlan(submittedOrgDto.id, 'free', session.token!)
+    const r = await setOrganizationPlan(submittedOrgDto.id, 'free')
     if (!r.ok) { error = r.message; submitting = false; return }
 
     submitting = false

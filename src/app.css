@@ -28,6 +28,42 @@ body {
   letter-spacing: -0.005em;
 }
 
+/* subtle grid */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.022) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.022) 1px, transparent 1px);
+  background-size: 48px 48px;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* amber glow from the left edge */
+body::after {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: 480px;
+  background: radial-gradient(
+    ellipse 100% 60% at 0% 30%,
+    oklch(0.78 0.14 65 / 0.11),
+    transparent
+  );
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* ensure page content sits above background layers */
+header, main, footer, nav {
+  position: relative;
+  z-index: 1;
+}
+
 .mono { font-family: 'Geist Mono', ui-monospace, monospace; }
 
 .page {

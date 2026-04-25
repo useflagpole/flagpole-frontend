@@ -23,15 +23,15 @@ function createOrgStore() {
       activeId = id
     },
 
-    async fetch(userID: string, token: string) {
+    async fetch(userID: string) {
       loading = true
       error   = null
-      const result = await fetchUserOrganizations(userID, token)
+      const result = await fetchUserOrganizations(userID)
       loading = false
       ready   = true
       if (result.ok) {
-        orgs     = result.orgs
-        activeId = result.orgs[0]?.id ?? null
+        orgs     = result.data
+        activeId = result.data[0]?.id ?? null
       } else {
         error = result.message
       }

@@ -27,7 +27,7 @@
     loginLoading = false;
 
     if (result.ok) {
-      session.set(result.token);
+      session.set(result.data.token);
       window.location.hash = '#/app';
       return;
     }

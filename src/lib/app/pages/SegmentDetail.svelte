@@ -1,12 +1,12 @@
 <script lang="ts">
-  import { segments, flags, flagRules } from '../data'
+  import { projects, segments, flags, flagRules } from '../data'
 
-  let { activeProject, activeSegment, nav }: {
+  let { activeProject, projectName, activeSegment, nav }: {
     activeProject: string
+    projectName: string
     activeSegment: string
     nav: (p: string) => void
   } = $props()
-
   const projSegments = $derived(segments.filter(s => s.projectId === activeProject))
   const seg = $derived(projSegments.find(s => s.id === activeSegment) ?? projSegments[0])
 
@@ -52,7 +52,7 @@
 {#if seg}
 <div class="page-shell">
   <header class="page-header">
-    <span class="eyebrow">Segments</span>
+    <span class="eyebrow">{projectName}</span>
     <div class="title-row">
       <button class="back-btn" onclick={() => nav('segments')}>←</button>
       <h1 class="mono">{seg.name}</h1>

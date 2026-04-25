@@ -1,15 +1,27 @@
 <script lang="ts">
-  import { projects } from '../data'
+  import { projectStore } from '../../project.svelte'
 
-  let { activeProject, onSelectProject }: {
+  let { activeProject, projectName, orgName, onSelectProject }: {
     activeProject: string
+    projectName: string
+    orgName: string
     onSelectProject: (id: string) => void
   } = $props()
+
+  const count = $derived(projectStore.projects.length)
+  const eyebrow = $derived(`${count} project${count !== 1 ? 's' : ''} on ${orgName}`)
+
+  const parseEnvs = (raw: string): string[] => {
+    try { return JSON.parse(raw) } catch { return [] }
+  }
 </script>
 
 <div class="page-shell">
   <header class="page-header">
-    <h1>Projects</h1>
+    <div>
+      <span class="eyebrow">{eyebrow}</span>
+      <h1>Projects</h1>
+    </div>
     <div class="actions">
       <button class="btn btn-primary">+ New project</button>
     </div>
@@ -17,18 +29,21 @@
 
   <div class="content">
     <div class="project-list">
-      {#each projects as p}
-        <button class="project-row" class:active={activeProject === p.id} onclick={() => onSelectProject(p.id)}>
-          <span class="proj-name mono">{p.name}</span>
-          <div class="env-tags">
-            {#each p.env as e}<span class="tag">{e}</span>{/each}
-          </div>
-          <span class="meta mono">{p.flagCount} flags</span>
-          <span class="meta mono">{p.segmentCount} segments</span>
-          <span class="meta mono light">{p.lastModified}</span>
-          {#if activeProject === p.id}<span class="pill on">active</span>{/if}
-        </button>
-      {/each}
+      {#if projectStore.loading}
+        <div class="empty mono">Loading…</div>
+      {:else if projectStore.projects.length === 0}
+        <div class="empty mono">No projects yet</div>
+      {:else}
+        {#each projectStore.projects as p}
+          <button class="project-row" class:active={activeProject === String(p.id)} onclick={() => onSelectProject(String(p.id))}>
+            <span class="proj-name mono">{p.name}</span>
+            <div class="env-tags">
+              {#each parseEnvs(p.environments) as e}<span class="tag">{e}</span>{/each}
+            </div>
+            {#if activeProject === String(p.id)}<span class="pill on">active</span>{/if}
+          </button>
+        {/each}
+      {/if}
     </div>
   </div>
 </div>
@@ -46,6 +61,15 @@
     display: flex;
     align-items: flex-end;
     justify-content: space-between;
+  }
+
+  .eyebrow {
+    display: block;
+    font: 500 11px 'Geist Mono', ui-monospace, monospace;
+    color: var(--accent);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    margin-bottom: 16px;
   }
 
   h1 {
@@ -69,6 +93,13 @@
     display: flex;
     flex-direction: column;
     gap: 10px;
+  }
+
+  .empty {
+    font: 400 13px 'Geist Mono', ui-monospace, monospace;
+    color: var(--ink-3);
+    text-align: center;
+    padding: 64px 24px;
   }
 
   .project-row {
@@ -101,15 +132,6 @@
     display: flex;
     gap: 6px;
     flex: 1;
-  }
-
-  .meta {
-    font: 400 12px 'Geist Mono', ui-monospace, monospace;
-    color: var(--ink-3);
-  }
-
-  .meta.light {
-    margin-left: auto;
   }
 
   .tag {

@@ -4,8 +4,9 @@
   import MiniSparkline from '../MiniSparkline.svelte'
   import ActionBadge from '../ActionBadge.svelte'
 
-  let { activeProject, nav, onSelectFlag }: {
+  let { activeProject, projectName, nav, onSelectFlag }: {
     activeProject: string
+    projectName: string
     nav: (p: string) => void
     onSelectFlag: (id: string) => void
   } = $props()
@@ -21,8 +22,8 @@
 <div class="page-shell">
   <header class="page-header">
     <div class="page-title-area">
-      <span class="eyebrow">{proj.name} · {proj.env.join(' · ')}</span>
-      <h1>{proj.name} — dashboard</h1>
+      <span class="eyebrow">{projectName}</span>
+      <h1>Dashboard</h1>
     </div>
   </header>
 

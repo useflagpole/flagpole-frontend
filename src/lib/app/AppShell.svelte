@@ -1,7 +1,7 @@
 <script lang="ts">
-  import { projects } from './data'
   import { session } from '../session.svelte'
   import { orgStore } from '../org.svelte'
+  import { projectStore } from '../project.svelte'
   import Onboarding    from './Onboarding.svelte'
   import Dashboard     from './pages/Dashboard.svelte'
   import Projects      from './pages/Projects.svelte'
@@ -13,14 +13,23 @@
   import Settings      from './pages/Settings.svelte'
 
   let page          = $state('dashboard')
-  let activeProject = $state('p1')
+  let activeProject = $state<number | null>(null)
   let activeFlag    = $state('f1')
   let activeSegment = $state('s1')
   let userMenuOpen  = $state(false)
 
   $effect(() => {
     if (session.isAuthenticated && session.userId) {
-      orgStore.fetch(session.userId, session.token!)
+      orgStore.fetch(session.userId)
+    }
+  })
+
+  $effect(() => {
+    const orgId = orgStore.activeId
+    if (orgId) {
+      projectStore.fetch(orgId).then(() => {
+        activeProject = projectStore.projects[0]?.id ?? null
+      })
     }
   })
 
@@ -30,6 +39,10 @@
     activeFlag    = 'f1'
     activeSegment = 's1'
   })
+
+  const activeProjectName = $derived(
+    projectStore.projects.find(p => p.id === activeProject)?.name ?? ''
+  )
 
   const nav = (p: string) => { page = p }
 
@@ -72,16 +85,19 @@
       <button class="section-label" class:active={page === 'projects'} onclick={() => nav('projects')}>
         <span>⊞</span> Projects
       </button>
-      {#each projects as p}
-        <button
-          class="project-item"
-          class:active={activeProject === p.id}
-          onclick={() => { activeProject = p.id }}
-        >
-          <span class="mono" style="font-size: 12px">{p.name}</span>
-          <span class="proj-count">{p.flagCount}</span>
-        </button>
-      {/each}
+      {#if projectStore.loading}
+        <span class="proj-loading mono">loading…</span>
+      {:else}
+        {#each projectStore.projects as p}
+          <button
+            class="project-item"
+            class:active={activeProject === p.id}
+            onclick={() => { activeProject = p.id }}
+          >
+            <span class="mono" style="font-size: 12px">{p.name}</span>
+          </button>
+        {/each}
+      {/if}
     </div>
 
     <nav class="nav">
@@ -139,35 +155,40 @@
   <main class="main">
     {#if page === 'dashboard'}
       <Dashboard
-        {activeProject}
+        activeProject={String(activeProject ?? '')}
+        projectName={activeProjectName}
         {nav}
         onSelectFlag={id => { activeFlag = id; nav('flagdetail') }}
       />
     {:else if page === 'projects'}
       <Projects
-        {activeProject}
-        onSelectProject={id => { activeProject = id; nav('flags') }}
+        activeProject={String(activeProject ?? '')}
+        projectName={activeProjectName}
+        orgName={orgStore.activeOrg?.name ?? ''}
+        onSelectProject={id => { activeProject = Number(id); nav('flags') }}
       />
     {:else if page === 'flags'}
       <Flags
-        {activeProject}
+        activeProject={String(activeProject ?? '')}
+        projectName={activeProjectName}
         {nav}
         onSelectFlag={id => { activeFlag = id; nav('flagdetail') }}
       />
     {:else if page === 'flagdetail'}
-      <FlagDetail {activeProject} {activeFlag} {nav} />
+      <FlagDetail activeProject={String(activeProject ?? '')} projectName={activeProjectName} {activeFlag} {nav} />
     {:else if page === 'segments'}
       <Segments
-        {activeProject}
+        activeProject={String(activeProject ?? '')}
+        projectName={activeProjectName}
         {nav}
         onSelectSegment={id => { activeSegment = id; nav('segmentdetail') }}
       />
     {:else if page === 'segmentdetail'}
-      <SegmentDetail {activeProject} {activeSegment} {nav} />
+      <SegmentDetail activeProject={String(activeProject ?? '')} projectName={activeProjectName} {activeSegment} {nav} />
     {:else if page === 'auditlog'}
-      <AuditLog {activeProject} />
+      <AuditLog activeProject={String(activeProject ?? '')} projectName={activeProjectName} />
     {:else if page === 'settings'}
-      <Settings {activeProject} />
+      <Settings activeProject={String(activeProject ?? '')} projectName={activeProjectName} />
     {/if}
   </main>
 </div>
@@ -295,9 +316,11 @@
     color: var(--ink);
   }
 
-  .proj-count {
-    font: 400 10px 'Geist Mono', ui-monospace, monospace;
+  .proj-loading {
+    display: block;
+    font-size: 11px;
     color: var(--ink-3);
+    padding: 4px 8px;
   }
 
   .nav {

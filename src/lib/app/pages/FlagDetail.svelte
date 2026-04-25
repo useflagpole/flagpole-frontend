@@ -4,8 +4,9 @@
   import Toggle from '../Toggle.svelte'
   import ActionBadge from '../ActionBadge.svelte'
 
-  let { activeProject, activeFlag, nav }: {
+  let { activeProject, projectName, activeFlag, nav }: {
     activeProject: string
+    projectName: string
     activeFlag: string
     nav: (p: string) => void
   } = $props()
@@ -42,7 +43,7 @@
 {#if flag}
 <div class="page-shell">
   <header class="page-header">
-    <span class="eyebrow">{proj.name} / flags</span>
+    <span class="eyebrow">{projectName}</span>
     <div class="title-row">
       <button class="back-btn" onclick={() => nav('flags')}>←</button>
       <h1 class="mono">{flag.key}</h1>

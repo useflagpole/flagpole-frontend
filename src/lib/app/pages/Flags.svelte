@@ -2,8 +2,9 @@
   import { projects, flags } from '../data'
   import RolloutBar from '../RolloutBar.svelte'
 
-  let { activeProject, nav, onSelectFlag }: {
+  let { activeProject, projectName, nav, onSelectFlag }: {
     activeProject: string
+    projectName: string
     nav: (p: string) => void
     onSelectFlag: (id: string) => void
   } = $props()
@@ -21,8 +22,8 @@
 <div class="page-shell">
   <header class="page-header">
     <div>
-      <span class="eyebrow">{projFlags.length} flags · {proj.env.join(' · ')}</span>
-      <h1>{proj.name} / flags</h1>
+      <span class="eyebrow">{projectName}</span>
+      <h1>Flags</h1>
     </div>
     <div class="actions">
       <button class="btn btn-ghost">Import</button>

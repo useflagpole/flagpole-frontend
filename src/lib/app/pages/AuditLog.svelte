@@ -1,9 +1,8 @@
 <script lang="ts">
-  import { auditLog } from '../data'
+  import { projects, auditLog } from '../data'
   import ActionBadge from '../ActionBadge.svelte'
 
-  let { activeProject }: { activeProject: string } = $props()
-
+  let { activeProject, projectName }: { activeProject: string; projectName: string } = $props()
   const projLog = $derived(auditLog.filter(a => a.projectId === activeProject))
   let search       = $state('')
   let filterAction = $state('all')
@@ -20,7 +19,7 @@
 <div class="page-shell">
   <header class="page-header">
     <div>
-      <span class="eyebrow">{projLog.length} events</span>
+      <span class="eyebrow">{projectName}</span>
       <h1>Audit log</h1>
     </div>
     <div class="actions">

@@ -1,7 +1,7 @@
 <script lang="ts">
   import { projects, sdkKeys } from '../data'
 
-  let { activeProject }: { activeProject: string } = $props()
+  let { activeProject, projectName }: { activeProject: string; projectName: string } = $props()
 
   const proj = $derived(projects.find(p => p.id === activeProject) ?? projects[0])
   let copied = $state<string | null>(null)
@@ -16,7 +16,7 @@
 <div class="page-shell">
   <header class="page-header">
     <div>
-      <span class="eyebrow">{proj.name} · settings</span>
+      <span class="eyebrow">{projectName}</span>
       <h1>Settings</h1>
     </div>
   </header>

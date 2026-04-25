@@ -1,12 +1,12 @@
 <script lang="ts">
-  import { segments } from '../data'
+  import { projects, segments } from '../data'
 
-  let { activeProject, nav, onSelectSegment }: {
+  let { activeProject, projectName, nav, onSelectSegment }: {
     activeProject: string
+    projectName: string
     nav: (p: string) => void
     onSelectSegment: (id: string) => void
   } = $props()
-
   const projSegments = $derived(segments.filter(s => s.projectId === activeProject))
   let search = $state('')
   const filtered = $derived(projSegments.filter(s => s.name.includes(search.toLowerCase())))
@@ -15,7 +15,7 @@
 <div class="page-shell">
   <header class="page-header">
     <div>
-      <span class="eyebrow">{projSegments.length} segments</span>
+      <span class="eyebrow">{projectName}</span>
       <h1>Segments</h1>
     </div>
     <div class="actions">
