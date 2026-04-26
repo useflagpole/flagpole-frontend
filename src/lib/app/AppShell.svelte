@@ -12,6 +12,7 @@
   import SegmentDetail from './pages/SegmentDetail.svelte'
   import AuditLog      from './pages/AuditLog.svelte'
   import Settings      from './pages/Settings.svelte'
+  import Profile       from './pages/Profile.svelte'
   import Snackbar      from './Snackbar.svelte'
 
   let page          = $state('dashboard')
@@ -134,8 +135,8 @@
             </button>
           {/each}
           <div class="menu-divider"></div>
-          <button class="menu-item" onclick={() => { nav('settings'); userMenuOpen = false }}>
-            <span class="menu-icon">⚙</span> Settings
+          <button class="menu-item" onclick={() => { nav('profile'); userMenuOpen = false }}>
+            <span class="menu-icon">◈</span> Profile
           </button>
           <div class="menu-divider"></div>
           <button class="menu-item danger" onclick={() => { session.clear(); orgStore.clear(); window.location.hash = '#/login'; userMenuOpen = false }}>
@@ -151,7 +152,7 @@
       >
         <div class="avatar">{session.firstName ? session.firstName[0].toUpperCase() : '?'}</div>
         <div class="user-info">
-          <div class="user-name">{session.firstName} {session.lastName}</div>
+          <div class="user-name">{session.username}</div>
           <div class="user-org mono">{orgStore.activeOrg?.name ?? '—'}</div>
         </div>
       </button>
@@ -196,6 +197,8 @@
       <AuditLog activeProject={String(activeProject ?? '')} projectName={activeProjectName} />
     {:else if page === 'settings'}
       <Settings activeProject={String(activeProject ?? '')} projectName={activeProjectName} />
+    {:else if page === 'profile'}
+      <Profile />
     {/if}
   </main>
 </div>

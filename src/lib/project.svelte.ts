@@ -24,6 +24,9 @@ function createProjectStore() {
     },
 
     push(p: ProjectDTO) { projects = [...projects, p] },
+    updateName(id: number, name: string) {
+      projects = projects.map(p => p.id === id ? { ...p, name } : p)
+    },
     clear() { projects = [] },
   }
 }

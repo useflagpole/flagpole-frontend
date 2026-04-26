@@ -5,7 +5,7 @@ const BASE = import.meta.env.VITE_API_URL
 type Method = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'
 
 export type ApiOk<T>  = { ok: true;  data: T }
-export type ApiErr    = { ok: false; status: number; message: string }
+export type ApiErr    = { ok: false; status: number; message: string; fields?: string[] }
 export type ApiResult<T> = ApiOk<T> | ApiErr
 
 async function request<T>(path: string, method: Method, body?: unknown): Promise<ApiResult<T>> {
@@ -29,7 +29,7 @@ async function request<T>(path: string, method: Method, body?: unknown): Promise
 
   if (res.ok) return { ok: true, data: (json?.data ?? null) as T }
 
-  return { ok: false, status: res.status, message: json?.error ?? 'Something went wrong.' }
+  return { ok: false, status: res.status, message: json?.error ?? 'Something went wrong.', fields: json?.fields ?? undefined }
 }
 
 export const api = {

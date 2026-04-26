@@ -6,9 +6,10 @@ export async function login(email: string, password: string): Promise<ApiResult<
 
 export async function signup(
   email: string,
+  username: string,
   password: string,
   firstName: string,
   lastName: string,
 ): Promise<ApiResult<null>> {
-  return api.post('/signup', { email, password, firstName, lastName })
+  return api.post('/signup', { email, username, password, firstName, lastName })
 }

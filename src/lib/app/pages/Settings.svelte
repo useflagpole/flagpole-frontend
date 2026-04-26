@@ -3,6 +3,7 @@
   import { orgStore } from '../../org.svelte'
   import { session } from '../../session.svelte'
   import { sdkKeys } from '../data'
+  import { updateProject } from '../../api/projects'
   import {
     listEnvironments,
     createEnvironment,
@@ -16,11 +17,26 @@
 
   const proj = $derived(projectStore.projects.find(p => String(p.id) === activeProject))
 
-  const ownerName = $derived(`${session.firstName ?? ''} ${session.lastName ?? ''}`.trim())
+  const ownerName = $derived(session.username)
 
   let nameInput    = $state('')
   let originalName = $state('')
+  let nameSaving   = $state(false)
   $effect(() => { nameInput = proj?.name ?? ''; originalName = proj?.name ?? '' })
+
+  const saveProjectName = async () => {
+    if (!orgId || !projId || !nameInput.trim()) return
+    nameSaving = true
+    const r = await updateProject(orgId, projId, nameInput.trim())
+    nameSaving = false
+    if (r.ok) {
+      projectStore.updateName(projId, r.data.name)
+      originalName = r.data.name
+      notify.success('Project renamed', `Project is now "${r.data.name}".`)
+    } else {
+      notify.error('Rename failed', r.message)
+    }
+  }
 
   // environments
   const orgId  = $derived(orgStore.activeId)
@@ -129,7 +145,11 @@
             <span class="owner-text mono">{ownerName}</span>
           </div>
           <div class="save-row">
-            <button class="btn btn-primary btn-sm" disabled={nameInput.trim() === originalName}>Save</button>
+            <button
+              class="btn btn-primary btn-sm"
+              disabled={nameInput.trim() === originalName || nameSaving}
+              onclick={saveProjectName}
+            >{nameSaving ? 'Saving…' : 'Save'}</button>
           </div>
         </div>
       </div>

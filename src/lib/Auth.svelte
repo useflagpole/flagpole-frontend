@@ -12,10 +12,13 @@
 
   let signupFirstName = $state('');
   let signupLastName = $state('');
+  let signupUsername = $state('');
   let signupEmail = $state('');
   let signupPassword = $state('');
   let signupTerms = $state(false);
   let signupError = $state('');
+  let signupEmailError = $state('');
+  let signupUsernameError = $state('');
   let signupLoading = $state(false);
 
   async function handleLogin(e: SubmitEvent) {
@@ -44,9 +47,11 @@
   async function handleSignup(e: SubmitEvent) {
     e.preventDefault();
     signupError = '';
+    signupEmailError = '';
+    signupUsernameError = '';
     signupLoading = true;
 
-    const result = await signup(signupEmail, signupPassword, signupFirstName, signupLastName);
+    const result = await signup(signupEmail, signupUsername, signupPassword, signupFirstName, signupLastName);
     signupLoading = false;
 
     if (result.ok) {
@@ -55,8 +60,9 @@
       return;
     }
 
-    if (result.status === 409) {
-      signupError = 'An account with this email already exists.';
+    if (result.status === 409 && result.fields) {
+      if (result.fields.includes('email'))    signupEmailError    = 'Email already registered.';
+      if (result.fields.includes('username')) signupUsernameError = 'Username already taken.';
     } else {
       signupError = result.message || 'Something went wrong.';
     }
@@ -106,8 +112,14 @@
           </div>
         </div>
         <div class="field">
+          <label for="signup-username">Username</label>
+          <input id="signup-username" type="text" placeholder="jane-smith" autocomplete="off" spellcheck="false" bind:value={signupUsername} required />
+          {#if signupUsernameError}<p class="error field-error">{signupUsernameError}</p>{/if}
+        </div>
+        <div class="field">
           <label for="signup-email">Email</label>
           <input id="signup-email" type="email" placeholder="you@company.com" bind:value={signupEmail} required />
+          {#if signupEmailError}<p class="error field-error">{signupEmailError}</p>{/if}
         </div>
         <div class="field">
           <label for="signup-password">Password</label>
@@ -309,6 +321,10 @@
     font-size: 12.5px;
     color: #e05a5a;
     margin: 0;
+  }
+
+  .field-error {
+    margin-top: 4px;
   }
 
   .submit {

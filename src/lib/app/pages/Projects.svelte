@@ -1,5 +1,7 @@
 <script lang="ts">
   import { projectStore } from '../../project.svelte'
+  import ModalNewProject from '../ModalNewProject.svelte'
+  import type { ProjectDTO } from '../../api/projects'
 
   let { activeProject, projectName, orgName, onSelectProject, onOpenSettings }: {
     activeProject: string
@@ -8,6 +10,14 @@
     onSelectProject: (id: string) => void
     onOpenSettings: (id: string) => void
   } = $props()
+
+  let showNewProject = $state(false)
+
+  function handleCreated(project: ProjectDTO) {
+    projectStore.push(project)
+    showNewProject = false
+    onSelectProject(String(project.id))
+  }
 
   const count = $derived(projectStore.projects.length)
   const eyebrow = $derived(`${count} project${count !== 1 ? 's' : ''} on ${orgName}`)
@@ -24,7 +34,7 @@
       <h1><span class="page-icon">▦</span> projects</h1>
     </div>
     <div class="actions">
-      <button class="btn btn-primary">+ New project</button>
+      <button class="btn btn-primary" onclick={() => showNewProject = true}>+ New project</button>
     </div>
   </header>
 
@@ -51,6 +61,13 @@
     </div>
   </div>
 </div>
+
+{#if showNewProject}
+  <ModalNewProject
+    onClose={() => showNewProject = false}
+    onCreated={handleCreated}
+  />
+{/if}
 
 <style>
   .page-shell {
