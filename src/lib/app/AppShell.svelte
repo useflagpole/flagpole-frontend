@@ -18,7 +18,7 @@
 
   let page          = $state('dashboard')
   let activeProject = $state<number | null>(null)
-  let activeFlag    = $state('f1')
+  let activeFlag    = $state<number | null>(null)
   let activeSegment = $state('s1')
   let userMenuOpen  = $state(false)
 
@@ -40,7 +40,7 @@
   $effect(() => {
     // when project changes, reset detail selections to first item of new project
     activeProject
-    activeFlag    = 'f1'
+    activeFlag    = null
     activeSegment = 's1'
   })
 

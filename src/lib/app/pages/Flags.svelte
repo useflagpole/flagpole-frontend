@@ -1,23 +1,59 @@
 <script lang="ts">
-  import { projects, flags } from '../data'
-  import RolloutBar from '../RolloutBar.svelte'
   import FlagIcon from '../FlagIcon.svelte'
+  import ModalCreateFlag from '../ModalCreateFlag.svelte'
+  import { flagStore } from '../../flag.svelte'
+  import { orgStore } from '../../org.svelte'
+  import { projectStore } from '../../project.svelte'
+  import { createFlag } from '../../api/flags'
+  import { notify } from '../../toasts.svelte'
 
   let { activeProject, projectName, nav, onSelectFlag }: {
     activeProject: string
     projectName: string
     nav: (p: string) => void
-    onSelectFlag: (id: string) => void
+    onSelectFlag: (id: number) => void
   } = $props()
 
-  const proj      = $derived(projects.find(p => p.id === activeProject) ?? projects[0])
-  const projFlags = $derived(flags[proj.id] ?? [])
-  let search      = $state('')
-  let filter      = $state('all')
-  const filtered  = $derived(projFlags.filter(f => {
+  const orgId  = $derived(orgStore.activeId)
+  const projId = $derived(projectStore.projects.find(p => String(p.id) === activeProject)?.id ?? 0)
+
+  $effect(() => {
+    if (orgId && projId) flagStore.fetch(orgId, projId)
+  })
+
+  let search          = $state('')
+  let filter          = $state('all')
+  let showCreateModal = $state(false)
+
+  const filtered = $derived(flagStore.flags.filter(f => {
     const q = search.toLowerCase()
-    return (filter === 'all' || f.status === filter) && f.key.includes(q)
+    const matchSearch = f.key.includes(q) || f.name.toLowerCase().includes(q)
+    const matchFilter = filter === 'all' || (filter === 'on' && f.enabled) || (filter === 'off' && !f.enabled)
+    return matchSearch && matchFilter
   }))
+
+  const handleCreate = async (draft: { key: string; type: string; defaultValue: string; desc: string }) => {
+    if (!orgId || !projId) return
+    const defaultValue = draft.type === 'bool'
+      ? draft.defaultValue === 'true'
+      : draft.type === 'number'
+        ? (parseFloat(draft.defaultValue) || 0)
+        : (draft.defaultValue || '')
+    const r = await createFlag(orgId, projId, {
+      key:   draft.key,
+      name:  draft.desc || draft.key,
+      type:  draft.type,
+      value: defaultValue,
+    })
+    if (r.ok) {
+      flagStore.push(r.data)
+      notify.success('Flag created', `"${r.data.key}" is ready.`)
+    } else if (r.status === 422) {
+      notify.error('Flag limit reached', 'Projects are limited to 25 flags.')
+    } else {
+      notify.error('Create failed', r.message)
+    }
+  }
 </script>
 
 <div class="page-shell">
@@ -27,8 +63,8 @@
       <h1><span class="page-icon"><FlagIcon size={22} /></span> flags</h1>
     </div>
     <div class="actions">
-      <button class="btn btn-ghost">Import</button>
-      <button class="btn btn-primary">+ New flag</button>
+      <button class="btn btn-ghost" disabled>Import</button>
+      <button class="btn btn-primary" onclick={() => showCreateModal = true}>+ New flag</button>
     </div>
   </header>
 
@@ -45,27 +81,39 @@
           {s === 'all' ? 'All' : s}
         </button>
       {/each}
-      <span class="count mono">{filtered.length}</span>
+      <span class="count mono">{filtered.length} / 25 flags</span>
     </div>
 
     <div class="panel">
-      {#if filtered.length === 0}
-        <div class="empty">No flags match your search</div>
+      {#if flagStore.loading}
+        <div class="empty">Loading…</div>
+      {:else if flagStore.error}
+        <div class="empty" style="color: #e07070">{flagStore.error}</div>
+      {:else if filtered.length === 0}
+        <div class="empty">{flagStore.flags.length === 0 ? 'No flags yet. How about creating one?' : 'No flags match your search'}</div>
+      {:else}
+        {#each filtered as f, i}
+          <button class="flag-row" class:last={i === filtered.length - 1} onclick={() => onSelectFlag(f.id)}>
+            <span class="pill" class:on={f.enabled}>{f.enabled ? 'on' : 'off'}</span>
+            <div class="flag-info">
+              <span class="flag-key mono">{f.key}</span>
+              <span class="flag-name">{f.name}</span>
+            </div>
+            <span class="tag mono">{f.type}</span>
+            <span class="updated mono">{new Date(f.updatedAt).toLocaleDateString()}</span>
+          </button>
+        {/each}
       {/if}
-      {#each filtered as f, i}
-        <button class="flag-row" class:last={i === filtered.length - 1} onclick={() => onSelectFlag(f.id)}>
-          <span class="pill" class:on={f.status === 'on'}>{f.status}</span>
-          <span class="flag-key mono">{f.key}</span>
-          <div class="tags">
-            {#each f.tags as t}<span class="tag">{t}</span>{/each}
-          </div>
-          <RolloutBar pct={f.rollout} width={100} />
-          <span class="evals mono">{f.evals > 0 ? f.evals.toLocaleString() : '—'}</span>
-        </button>
-      {/each}
     </div>
   </div>
 </div>
+
+{#if showCreateModal}
+  <ModalCreateFlag
+    onClose={() => showCreateModal = false}
+    onSubmit={handleCreate}
+  />
+{/if}
 
 <style>
   .page-shell {
@@ -174,18 +222,25 @@
     background: var(--bg-3);
   }
 
+  .flag-info {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+  }
+
   .flag-key {
     font-size: 13px;
     color: var(--ink);
-    flex: 1;
   }
 
-  .tags {
-    display: flex;
-    gap: 5px;
+  .flag-name {
+    font-size: 11.5px;
+    color: var(--ink-3);
   }
 
-  .evals {
+  .updated {
     font-size: 11px;
     color: var(--ink-3);
     min-width: 80px;
@@ -252,8 +307,13 @@
     border-color: var(--line-2);
   }
 
-  .btn-ghost:hover {
+  .btn-ghost:hover:not(:disabled) {
     border-color: var(--ink);
+  }
+
+  .btn-ghost:disabled {
+    opacity: 0.35;
+    cursor: default;
   }
 
   .btn-subtle {
