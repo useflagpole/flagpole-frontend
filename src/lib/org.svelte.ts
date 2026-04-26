@@ -1,52 +1,28 @@
-import { fetchUserOrganizations, type OrgDTO } from './api/organizations'
+import { userStore, type UserOrg } from './user.svelte'
 
 function createOrgStore() {
-  let orgs    = $state<OrgDTO[]>([])
   let activeId = $state<number | null>(null)
-  let loading  = $state(false)
-  let ready    = $state(false)
-  let error    = $state<string | null>(null)
 
-  const activeOrg = $derived(
-    orgs.find(o => o.id === activeId) ?? orgs[0] ?? null
-  )
+  const orgs      = $derived(userStore.orgs)
+  const activeOrg = $derived(orgs.find(o => o.id === activeId) ?? orgs[0] ?? null)
 
   return {
     get orgs()      { return orgs },
     get activeOrg() { return activeOrg },
-    get activeId()  { return activeId },
-    get loading()   { return loading },
-    get ready()     { return ready },
-    get error()     { return error },
+    get activeId()  { return activeId ?? activeOrg?.id ?? null },
+    get ready()     { return userStore.ready },
 
     setActive(id: number) {
       activeId = id
     },
 
-    async fetch(userID: string) {
-      loading = true
-      error   = null
-      const result = await fetchUserOrganizations(userID)
-      loading = false
-      ready   = true
-      if (result.ok) {
-        orgs     = result.data
-        activeId = result.data[0]?.id ?? null
-      } else {
-        error = result.message
-      }
-    },
-
-    push(org: OrgDTO) {
-      orgs     = [...orgs, org]
+    push(org: UserOrg) {
+      userStore.pushOrg(org)
       activeId = org.id
     },
 
     clear() {
-      orgs     = []
       activeId = null
-      ready    = false
-      error    = null
     },
   }
 }

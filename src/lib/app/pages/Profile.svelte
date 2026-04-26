@@ -1,10 +1,11 @@
 <script lang="ts">
   import { session } from '../../session.svelte'
+  import { userStore } from '../../user.svelte'
   import { updateUsername } from '../../api/users'
   import { notify } from '../../toasts.svelte'
 
-  let usernameInput    = $state(session.username)
-  let originalUsername = $state(session.username)
+  let usernameInput    = $state(userStore.username)
+  let originalUsername = $state(userStore.username)
   let usernameSaving   = $state(false)
   let usernameError    = $state<string | null>(null)
 
@@ -16,6 +17,7 @@
     usernameSaving = false
     if (r.ok) {
       originalUsername = r.data.username
+      userStore.setUsername(r.data.username)
       notify.success('Username updated', `Now showing as @${r.data.username}.`)
     } else if (r.fields?.includes('username')) {
       usernameError = 'Username already taken.'
@@ -28,7 +30,7 @@
 <div class="page-shell">
   <header class="page-header">
     <div>
-      <span class="eyebrow">@{session.username}</span>
+      <span class="eyebrow">@{userStore.username}</span>
       <h1><span class="page-icon">◈</span> profile</h1>
     </div>
   </header>
@@ -43,19 +45,19 @@
             <div class="setting-label">
               <div class="setting-title">Email</div>
             </div>
-            <span class="value-text mono">{session.token ? JSON.parse(atob(session.token.split('.')[1])).email : '—'}</span>
+            <span class="value-text mono">{userStore.email || '—'}</span>
           </div>
           <div class="setting-row">
             <div class="setting-label">
               <div class="setting-title">First name</div>
             </div>
-            <span class="value-text mono">{session.firstName}</span>
+            <span class="value-text mono">{userStore.firstName}</span>
           </div>
           <div class="setting-row">
             <div class="setting-label">
               <div class="setting-title">Last name</div>
             </div>
-            <span class="value-text mono">{session.lastName}</span>
+            <span class="value-text mono">{userStore.lastName}</span>
           </div>
         </div>
       </div>

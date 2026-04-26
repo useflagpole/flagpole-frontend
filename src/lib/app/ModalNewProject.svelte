@@ -75,7 +75,8 @@
 
 <svelte:window onkeydown={handleKeydown} />
 
-<!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
+<!-- svelte-ignore a11y_click_events_have_key_events -->
+<!-- svelte-ignore a11y_no_static_element_interactions -->
 <div class="overlay" onclick={handleOverlayClick} transition:fade={{ duration: 150 }}>
   <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="dialog-title">
 
@@ -237,7 +238,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 11px;
+    font-size: 15px;
     color: #e55a01;
     flex-shrink: 0;
   }

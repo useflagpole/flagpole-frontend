@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { OrgDTO } from '../api/organizations'
   import { session } from '../session.svelte'
+  import { userStore } from '../user.svelte'
   import { orgStore } from '../org.svelte'
   import { createOrganization, setOrganizationPlan } from '../api/organizations'
   import { createProject } from '../api/projects'
@@ -53,7 +54,7 @@
 
     if (!submittedProjDone) {
       const name = projName.trim() || 'my-project'
-      const r = await createProject(submittedOrgDto.id, name)
+      const r = await createProject(submittedOrgDto.id, name, [])
       if (!r.ok) { error = r.message; submitting = false; return }
       submittedProjDone = true
     }
@@ -65,8 +66,14 @@
     done = true
   }
 
+  function logout() {
+    session.clear()
+    userStore.clear()
+    window.location.hash = '#/login'
+  }
+
   function goToDashboard() {
-    if (submittedOrgDto) orgStore.push(submittedOrgDto)
+    if (submittedOrgDto) orgStore.push({ id: submittedOrgDto.id, name: submittedOrgDto.name, role: 'admin' })
     onDone()
   }
 </script>
@@ -84,9 +91,12 @@
       </div>
       flagpole
     </div>
-    <span class="topbar-right mono">
-      signed in as {session.firstName} {session.lastName}
-    </span>
+    <div class="topbar-right">
+      <span class="mono">signed in as {userStore.username}</span>
+      <button class="btn-logout" onclick={logout}>
+        Log out
+      </button>
+    </div>
   </header>
 
   <main class="stage">
@@ -118,7 +128,7 @@
         </div>
 
         {#if step === 0}
-          <p class="welcome">Welcome, {session.firstName} 👋</p>
+          <p class="welcome">Welcome, {userStore.firstName} 👋</p>
           <h1 class="title">Let's create your<br>organization.</h1>
           <p class="subtitle">Your organization is the top-level workspace. Projects, flags, and teams live inside it.</p>
 
@@ -253,7 +263,7 @@
     left: 0;
     right: 0;
     height: 180px;
-    background: radial-gradient(ellipse 60% 100% at 50% 0%, oklch(0.78 0.14 65 / 0.07), transparent);
+    background: radial-gradient(ellipse 60% 100% at 50% 0%, rgba(229, 90, 0, 0.07), transparent);
     pointer-events: none;
     z-index: 0;
   }
@@ -298,14 +308,33 @@
     top: 2px;
     width: 7px;
     height: 5px;
-    background: oklch(0.78 0.14 65);
+    background: #E55A00;
     clip-path: polygon(0 0, 100% 0, 80% 50%, 100% 100%, 0 100%);
   }
 
   .topbar-right {
     margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 16px;
     font-size: 13px;
     color: #66666d;
+  }
+
+  .btn-logout {
+    background: transparent;
+    border: 1px solid #26262a;
+    border-radius: 6px;
+    color: #66666d;
+    font: 500 12px 'Geist', ui-sans-serif;
+    padding: 6px 12px;
+    cursor: pointer;
+    transition: border-color 0.15s, color 0.15s;
+  }
+
+  .btn-logout:hover {
+    border-color: #3f3f45;
+    color: #ededef;
   }
 
   .stage {
@@ -339,7 +368,7 @@
   }
 
   .step-dot.active {
-    background: oklch(0.78 0.14 65);
+    background: #E55A00;
     width: 20px;
     border-radius: 99px;
   }
@@ -356,7 +385,7 @@
 
   .welcome {
     font-size: 13px;
-    color: oklch(0.78 0.14 65);
+    color: #E55A00;
     letter-spacing: 0.08em;
     text-transform: uppercase;
     margin: 0 0 14px;
@@ -367,7 +396,7 @@
   }
 
   .welcome.accent {
-    color: oklch(0.78 0.14 65);
+    color: #E55A00;
   }
 
   .title {
@@ -416,8 +445,8 @@
   }
 
   input[type="text"]:focus {
-    border-color: oklch(0.78 0.14 65 / 0.6);
-    box-shadow: 0 0 0 3px oklch(0.78 0.14 65 / 0.08);
+    border-color: rgba(229, 90, 0, 0.6);
+    box-shadow: 0 0 0 3px rgba(229, 90, 0, 0.08);
   }
 
   input[type="text"]::placeholder {
@@ -469,8 +498,8 @@
   }
 
   .plan-card.selected {
-    border-color: oklch(0.78 0.14 65 / 0.5);
-    background: oklch(0.78 0.14 65 / 0.06);
+    border-color: rgba(229, 90, 0, 0.5);
+    background: rgba(229, 90, 0, 0.06);
   }
 
   .plan-card-locked {
@@ -483,7 +512,7 @@
     top: 10px;
     right: 12px;
     font: 500 12px 'Geist Mono', ui-monospace, monospace;
-    color: oklch(0.78 0.14 65);
+    color: #E55A00;
   }
 
   .plan-soon {
@@ -597,7 +626,7 @@
     top: 5px;
     width: 22px;
     height: 14px;
-    background: oklch(0.78 0.14 65);
+    background: #E55A00;
     clip-path: polygon(0 0, 100% 0, 72% 50%, 100% 100%, 0 100%);
   }
 

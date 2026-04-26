@@ -1,7 +1,7 @@
 <script lang="ts">
   import { projectStore } from '../../project.svelte'
   import { orgStore } from '../../org.svelte'
-  import { session } from '../../session.svelte'
+  import { userStore } from '../../user.svelte'
   import { sdkKeys } from '../data'
   import { updateProject } from '../../api/projects'
   import {
@@ -17,7 +17,7 @@
 
   const proj = $derived(projectStore.projects.find(p => String(p.id) === activeProject))
 
-  const ownerName = $derived(session.username)
+  const ownerName = $derived(userStore.username)
 
   let nameInput    = $state('')
   let originalName = $state('')
@@ -117,7 +117,7 @@
   <header class="page-header">
     <div>
       <span class="eyebrow">{projectName}</span>
-      <h1><span class="page-icon">⚙</span> settings</h1>
+      <h1><span class="page-icon">⚙</span> project settings</h1>
     </div>
   </header>
 

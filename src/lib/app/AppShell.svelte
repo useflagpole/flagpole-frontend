@@ -1,5 +1,6 @@
 <script lang="ts">
   import { session } from '../session.svelte'
+  import { userStore } from '../user.svelte'
   import { orgStore } from '../org.svelte'
   import { projectStore } from '../project.svelte'
   import FlagIcon      from './FlagIcon.svelte'
@@ -23,7 +24,7 @@
 
   $effect(() => {
     if (session.isAuthenticated && session.userId) {
-      orgStore.fetch(session.userId)
+      userStore.fetch(session.userId)
     }
   })
 
@@ -45,6 +46,10 @@
 
   const activeProjectName = $derived(
     projectStore.projects.find(p => p.id === activeProject)?.name ?? ''
+  )
+
+  const activeOrgRole = $derived(
+    orgStore.activeOrg?.role ?? ''
   )
 
   const nav = (p: string) => { page = p }
@@ -139,7 +144,7 @@
             <span class="menu-icon">◈</span> Profile
           </button>
           <div class="menu-divider"></div>
-          <button class="menu-item danger" onclick={() => { session.clear(); orgStore.clear(); window.location.hash = '#/login'; userMenuOpen = false }}>
+          <button class="menu-item danger" onclick={() => { session.clear(); userStore.clear(); orgStore.clear(); window.location.hash = '#/login'; userMenuOpen = false }}>
             <span class="menu-icon">←</span> Log out
           </button>
         </div>
@@ -150,10 +155,10 @@
         class:open={userMenuOpen}
         onclick={() => userMenuOpen = !userMenuOpen}
       >
-        <div class="avatar">{session.firstName ? session.firstName[0].toUpperCase() : '?'}</div>
+        <div class="avatar">{userStore.firstName ? userStore.firstName[0].toUpperCase() : '?'}</div>
         <div class="user-info">
-          <div class="user-name">{session.username}</div>
-          <div class="user-org mono">{orgStore.activeOrg?.name ?? '—'}</div>
+          <div class="user-name">{userStore.username}</div>
+          <div class="user-org mono">{orgStore.activeOrg?.name ?? '—'}<span class="user-role"> · {activeOrgRole}</span></div>
         </div>
       </button>
     </div>
@@ -527,6 +532,11 @@
     text-overflow: ellipsis;
     white-space: nowrap;
     margin-top: 2px;
+  }
+
+  .user-role {
+    padding-left: 6px;
+    color: var(--ink-3);
   }
 
   .main {
