@@ -1,6 +1,6 @@
 # flagpole-client
 
-Frontend for the Flagpole feature flag platform, built with Svelte, TypeScript, and Vite.
+Frontend for the flagpole feature flag platform, built with Svelte, TypeScript, and Vite.
 
 ## Requirements
 

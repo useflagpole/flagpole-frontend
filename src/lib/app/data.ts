@@ -386,7 +386,7 @@ export const segments: Segment[] = [
     projectId: 'p1',
     name: 'internal-team',
     userCount: 38,
-    desc: 'Flagpole internal team for dogfooding.',
+    desc: 'flagpole internal team for dogfooding.',
     rules: [{ attr: 'email', op: 'ends_with', value: '@flagpole.dev' }],
   },
   {
