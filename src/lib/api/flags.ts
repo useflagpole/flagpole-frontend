@@ -1,14 +1,14 @@
 import { api, type ApiResult } from './client'
 
 export interface FlagDTO {
-  id:        number
-  projectId: number
-  key:       string
-  name:      string
-  type:      'bool' | 'string' | 'number'
-  enabled:   boolean
-  createdAt: string
-  updatedAt: string
+  id:          number
+  projectId:   number
+  key:         string
+  description: string
+  type:        'bool' | 'string' | 'number'
+  enabled:     boolean
+  createdAt:   string
+  updatedAt:   string
 }
 
 export function listFlags(orgId: number, projectId: number): Promise<ApiResult<FlagDTO[]>> {
@@ -21,7 +21,7 @@ export function getFlag(orgId: number, projectId: number, flagId: number): Promi
 
 export function createFlag(orgId: number, projectId: number, payload: {
   key: string
-  name: string
+  description?: string
   type: string
   value: unknown
 }): Promise<ApiResult<FlagDTO>> {
@@ -29,7 +29,7 @@ export function createFlag(orgId: number, projectId: number, payload: {
 }
 
 export function updateFlag(orgId: number, projectId: number, flagId: number, payload: {
-  name?: string
+  description?: string
   value?: unknown
   enabled?: boolean
 }): Promise<ApiResult<FlagDTO>> {

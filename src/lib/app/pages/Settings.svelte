@@ -3,7 +3,7 @@
   import { orgStore } from '../../org.svelte'
   import { userStore } from '../../user.svelte'
   import { sdkKeys } from '../data'
-  import { updateProject } from '../../api/projects'
+  import { updateProject, archiveProject } from '../../api/projects'
   import {
     listEnvironments,
     createEnvironment,
@@ -11,6 +11,7 @@
     deleteEnvironment,
   } from '../../api/environments'
   import ModalDeleteEnv from '../ModalDeleteEnv.svelte'
+  import ModalArchiveProject from '../ModalArchiveProject.svelte'
   import { notify } from '../../toasts.svelte'
 
   let { activeProject, projectName }: { activeProject: string; projectName: string } = $props()
@@ -105,6 +106,24 @@
     if (!orgId || !projId || !deletingEnv) return null
     const r = await deleteEnvironment(orgId, projId, deletingEnv)
     if (r.ok) { envs = r.data; return null }
+    return r.message
+  }
+
+  let showArchiveModal = $state(false)
+
+  const doArchive = async (): Promise<string | null> => {
+    if (!orgId || !projId) return 'Missing project context'
+    const r = await archiveProject(orgId, projId)
+    if (r.ok) {
+      projectStore.remove(projId)
+      notify.success('Project archived', `"${proj?.name}" has been archived.`)
+      return null
+    }
+    if (r.status === 403) {
+      notify.error('Permission denied', 'Admin role required to archive this project.')
+    } else {
+      notify.error('Archive failed', r.message)
+    }
     return r.message
   }
 
@@ -252,7 +271,7 @@
               <div class="setting-title">Archive project</div>
               <div class="setting-sub mono">Disables all flags and removes from the dashboard. Reversible.</div>
             </div>
-            <div><button class="btn btn-danger" disabled={!isAdmin}>Archive project</button></div>
+            <div><button class="btn btn-danger" disabled={!isAdmin} onclick={() => showArchiveModal = true}>Archive project</button></div>
           </div>
           <div class="setting-row">
             <div class="setting-label">
@@ -275,6 +294,14 @@
     projectName={proj?.name ?? ''}
     onConfirm={removeEnv}
     onClose={() => deletingEnv = null}
+  />
+{/if}
+
+{#if showArchiveModal}
+  <ModalArchiveProject
+    projectName={proj?.name ?? ''}
+    onConfirm={doArchive}
+    onClose={() => showArchiveModal = false}
   />
 {/if}
 

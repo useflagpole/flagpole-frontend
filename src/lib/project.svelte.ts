@@ -27,6 +27,12 @@ function createProjectStore() {
     updateName(id: number, name: string) {
       projects = projects.map(p => p.id === id ? { ...p, name } : p)
     },
+    updateIsActive(id: number, isActive: boolean) {
+      projects = projects.map(p => p.id === id ? { ...p, isActive } : p)
+    },
+    remove(id: number) {
+      projects = projects.filter(p => p.id !== id)
+    },
     clear() { projects = [] },
   }
 }

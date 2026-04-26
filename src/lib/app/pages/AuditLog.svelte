@@ -1,19 +1,60 @@
 <script lang="ts">
-  import { projects, auditLog } from '../data'
   import ActionBadge from '../ActionBadge.svelte'
+  import { orgStore } from '../../org.svelte'
+  import { projectStore } from '../../project.svelte'
+  import { fetchProjectAuditLog, type AuditLogDTO } from '../../api/projects'
 
   let { activeProject, projectName }: { activeProject: string; projectName: string } = $props()
-  const projLog = $derived(auditLog.filter(a => a.projectId === activeProject))
+
+  const orgId  = $derived(orgStore.activeId)
+  const projId = $derived(projectStore.projects.find(p => String(p.id) === activeProject)?.id ?? 0)
+
+  let entries: AuditLogDTO[] = $state([])
+  let loading = $state(false)
+  let error   = $state<string | null>(null)
+
+  $effect(() => {
+    if (!orgId || !projId) return
+    loading = true
+    error   = null
+    fetchProjectAuditLog(orgId, projId).then(r => {
+      loading = false
+      if (r.ok) entries = r.data
+      else error = r.message
+    })
+  })
+
   let search       = $state('')
   let filterAction = $state('all')
-  const actionTypes = ['all', 'flag.toggle', 'flag.create', 'flag.rollout', 'flag.rules', 'segment.edit']
 
-  const filtered = $derived(projLog.filter(a => {
-    const q = search.toLowerCase()
-    const matchQ = a.target.includes(q) || a.actor.includes(q) || a.detail.toLowerCase().includes(q)
+  const actionTypes = [
+    'all',
+    'flag.create',
+    'flag.toggle',
+    'flag.update',
+    'flag.delete',
+    'project.create',
+    'project.rename',
+    'project.archive',
+    'project.unarchive',
+    'org.create',
+    'org.rename',
+  ]
+
+  const filtered = $derived(entries.filter(a => {
+    const q      = search.toLowerCase()
+    const matchQ = a.target.toLowerCase().includes(q) || a.actor.toLowerCase().includes(q) || a.detail.toLowerCase().includes(q)
     const matchA = filterAction === 'all' || a.action === filterAction
     return matchQ && matchA
   }))
+
+  function formatDate(iso: string): string {
+    const d = new Date(iso)
+    return d.toLocaleString('en-US', {
+      year: 'numeric', month: '2-digit', day: '2-digit',
+      hour: '2-digit', minute: '2-digit', hour12: false,
+    })
+  }
 </script>
 
 <div class="page-shell">
@@ -21,9 +62,6 @@
     <div>
       <span class="eyebrow">{projectName}</span>
       <h1><span class="page-icon">≡</span> audit log</h1>
-    </div>
-    <div class="actions">
-      <button class="btn btn-ghost">Export CSV</button>
     </div>
   </header>
 
@@ -53,19 +91,25 @@
         <span class="col-env">Env</span>
         <span class="col-actor">Actor</span>
       </div>
-      {#if filtered.length === 0}
+
+      {#if loading}
+        <div class="empty mono">Loading…</div>
+      {:else if error}
+        <div class="empty mono" style="color:#e07070">{error}</div>
+      {:else if filtered.length === 0}
         <div class="empty mono">No matching events</div>
+      {:else}
+        {#each filtered as a, i}
+          <div class="audit-row" class:last={i === filtered.length - 1}>
+            <span class="col-time mono ts">{formatDate(a.createdAt)}</span>
+            <span class="col-action"><ActionBadge action={a.action} /></span>
+            <span class="col-target mono target">{a.target}</span>
+            <span class="col-detail detail">{a.detail}</span>
+            <span class="col-env"><span class="tag mono">{a.env || '—'}</span></span>
+            <span class="col-actor mono actor">{a.actor}</span>
+          </div>
+        {/each}
       {/if}
-      {#each filtered as a, i}
-        <div class="audit-row" class:last={i === filtered.length - 1}>
-          <span class="col-time mono ts">{a.ts}</span>
-          <span class="col-action"><ActionBadge action={a.action} /></span>
-          <span class="col-target mono target">{a.target}</span>
-          <span class="col-detail detail">{a.detail}</span>
-          <span class="col-env"><span class="tag mono">{a.env}</span></span>
-          <span class="col-actor mono actor">{a.actor}</span>
-        </div>
-      {/each}
     </div>
   </div>
 </div>
@@ -100,11 +144,6 @@
     letter-spacing: 0.12em;
     text-transform: uppercase;
     margin-bottom: 16px;
-  }
-
-  .actions {
-    display: flex;
-    gap: 8px;
   }
 
   .content {

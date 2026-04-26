@@ -27,7 +27,7 @@
 
   const filtered = $derived(flagStore.flags.filter(f => {
     const q = search.toLowerCase()
-    const matchSearch = f.key.includes(q) || f.name.toLowerCase().includes(q)
+    const matchSearch = f.key.includes(q) || f.description.toLowerCase().includes(q)
     const matchFilter = filter === 'all' || (filter === 'on' && f.enabled) || (filter === 'off' && !f.enabled)
     return matchSearch && matchFilter
   }))
@@ -40,10 +40,10 @@
         ? (parseFloat(draft.defaultValue) || 0)
         : (draft.defaultValue || '')
     const r = await createFlag(orgId, projId, {
-      key:   draft.key,
-      name:  draft.desc || draft.key,
-      type:  draft.type,
-      value: defaultValue,
+      key:         draft.key,
+      description: draft.desc,
+      type:        draft.type,
+      value:       defaultValue,
     })
     if (r.ok) {
       flagStore.push(r.data)
@@ -97,7 +97,7 @@
             <span class="pill" class:on={f.enabled}>{f.enabled ? 'on' : 'off'}</span>
             <div class="flag-info">
               <span class="flag-key mono">{f.key}</span>
-              <span class="flag-name">{f.name}</span>
+              <span class="flag-name">{f.description}</span>
             </div>
             <span class="tag mono">{f.type}</span>
             <span class="updated mono">{new Date(f.updatedAt).toLocaleDateString()}</span>

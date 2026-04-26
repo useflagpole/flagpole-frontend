@@ -58,6 +58,9 @@
     if (r.ok) {
       created = r.data
       notify.success('Project created', `"${r.data.name}" is ready.`)
+    } else if (r.status === 422) {
+      apiError = r.message
+      notify.error('Project limit reached', 'Organizations are limited to 2 projects.')
     } else {
       apiError = r.message
       notify.error('Create failed', r.message)

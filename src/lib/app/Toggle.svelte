@@ -1,20 +1,59 @@
 <script lang="ts">
-  let { on, onchange }: { on: boolean; onchange: (v: boolean) => void } = $props()
+  let { on, onchange, size = 'md', label = '', labelPosition = 'right', class: className = '' }: {
+    on: boolean
+    onchange: (v: boolean) => void
+    size?: 'sm' | 'md'
+    label?: string
+    labelPosition?: 'left' | 'right'
+    class?: string
+  } = $props()
 </script>
 
-<div
-  role="switch"
-  aria-checked={on}
-  tabindex="0"
-  class="toggle"
-  class:on
-  onclick={() => onchange(!on)}
-  onkeydown={e => e.key === 'Enter' && onchange(!on)}
->
-  <div class="knob"></div>
-</div>
+{#if label}
+  <span class="wrapper {className}" class:reverse={labelPosition === 'left'} onclick={() => onchange(!on)}>
+    {#if labelPosition === 'left'}<span class="label">{label}</span>{/if}
+    <div
+      role="switch"
+      aria-checked={on}
+      tabindex="0"
+      class="toggle"
+      class:on
+      class:sm={size === 'sm'}
+      onkeydown={e => e.key === 'Enter' && onchange(!on)}
+    >
+      <div class="knob"></div>
+    </div>
+    {#if labelPosition === 'right'}<span class="label">{label}</span>{/if}
+  </span>
+{:else}
+  <div
+    role="switch"
+    aria-checked={on}
+    tabindex="0"
+    class="toggle"
+    class:on
+    class:sm={size === 'sm'}
+    onclick={() => onchange(!on)}
+    onkeydown={e => e.key === 'Enter' && onchange(!on)}
+  >
+    <div class="knob"></div>
+  </div>
+{/if}
 
 <style>
+  .wrapper {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+  }
+
+  .label {
+    font: 500 12px 'Geist Mono', ui-monospace, monospace;
+    color: var(--ink-3);
+    user-select: none;
+  }
+
   .toggle {
     width: 44px;
     height: 24px;
@@ -46,5 +85,21 @@
   .toggle.on .knob {
     left: 22px;
     background: var(--bg);
+  }
+
+  .toggle.sm {
+    width: 30px;
+    height: 17px;
+  }
+
+  .toggle.sm .knob {
+    width: 12px;
+    height: 12px;
+    top: 2px;
+    left: 2px;
+  }
+
+  .toggle.sm.on .knob {
+    left: 15px;
   }
 </style>

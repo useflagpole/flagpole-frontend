@@ -1,9 +1,10 @@
 import { getUser } from './api/users'
 
 export interface UserOrg {
-  id:   number
-  name: string
-  role: string
+  id:      number
+  name:    string
+  role:    string
+  isOwner: boolean
 }
 
 function createUserStore() {

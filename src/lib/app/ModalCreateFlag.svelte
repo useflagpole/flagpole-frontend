@@ -72,7 +72,7 @@
         bind:this={keyInput}
         value={key}
         oninput={handleKeyInput}
-        maxlength={50}
+        maxlength={64}
         placeholder="e.g. new-checkout-flow"
         class="text-input mono"
         class:input-error={keyErr}

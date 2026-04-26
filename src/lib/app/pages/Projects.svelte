@@ -1,7 +1,11 @@
 <script lang="ts">
   import { projectStore } from '../../project.svelte'
+  import { orgStore } from '../../org.svelte'
   import ModalNewProject from '../ModalNewProject.svelte'
+  import Toggle from '../Toggle.svelte'
   import type { ProjectDTO } from '../../api/projects'
+  import { fetchProjects, unarchiveProject } from '../../api/projects'
+  import { notify } from '../../toasts.svelte'
 
   let { activeProject, projectName, orgName, onSelectProject, onOpenSettings }: {
     activeProject: string
@@ -11,7 +15,37 @@
     onOpenSettings: (id: string) => void
   } = $props()
 
-  let showNewProject = $state(false)
+  let showNewProject   = $state(false)
+  let showArchived     = $state(false)
+  let archivedProjects = $state<ProjectDTO[]>([])
+  let archivedLoading  = $state(false)
+
+  $effect(() => {
+    if (!showArchived) { archivedProjects = []; return }
+    const orgId = orgStore.activeId
+    if (!orgId) return
+    archivedLoading = true
+    fetchProjects(orgId, true).then(r => {
+      archivedLoading = false
+      if (r.ok) archivedProjects = r.data.filter(p => !p.isActive)
+    })
+  })
+
+  async function handleUnarchive(projectId: number) {
+    const orgId = orgStore.activeId
+    if (!orgId) return
+    const r = await unarchiveProject(orgId, projectId)
+    if (r.ok) {
+      archivedProjects = archivedProjects.filter(p => p.id !== projectId)
+      projectStore.updateIsActive(projectId, true)
+      projectStore.push(r.data)
+      notify.success('Project unarchived', `"${r.data.name}" is active again.`)
+    } else if (r.status === 422) {
+      notify.error('Project limit reached', 'Archive or delete an active project first.')
+    } else {
+      notify.error('Unarchive failed', r.message)
+    }
+  }
 
   function handleCreated(project: ProjectDTO) {
     projectStore.push(project)
@@ -19,8 +53,10 @@
     onSelectProject(String(project.id))
   }
 
+  const MAX_PROJECTS = 2
   const count = $derived(projectStore.projects.length)
-  const eyebrow = $derived(`${count} project${count !== 1 ? 's' : ''} on ${orgName}`)
+  const atLimit = $derived(count >= MAX_PROJECTS)
+  const eyebrow = $derived(`${count} / ${MAX_PROJECTS} projects on ${orgName}`)
 
   const parseEnvs = (raw: string): string[] => {
     try { return JSON.parse(raw) } catch { return [] }
@@ -34,7 +70,14 @@
       <h1><span class="page-icon">▦</span> projects</h1>
     </div>
     <div class="actions">
-      <button class="btn btn-primary" onclick={() => showNewProject = true}>+ New project</button>
+      <Toggle
+        on={showArchived}
+        onchange={v => showArchived = v}
+        class="toggle-archived"
+        size="sm"
+        label="Show archived"
+      />
+      <button class="btn btn-primary" onclick={() => showNewProject = true} disabled={atLimit}>+ New project</button>
     </div>
   </header>
 
@@ -59,6 +102,32 @@
         {/each}
       {/if}
     </div>
+
+    {#if showArchived}
+      <div class="archived-section">
+        <div class="archived-label mono">Archived projects</div>
+        {#if archivedLoading}
+          <div class="empty mono">Loading…</div>
+        {:else if archivedProjects.length === 0}
+          <div class="empty mono">No archived projects</div>
+        {:else}
+          <div class="project-list">
+            {#each archivedProjects as p}
+              <div class="project-wrap">
+                <div class="project-row archived">
+                  <span class="proj-name mono">{p.name}</span>
+                  <div class="env-tags">
+                    {#each parseEnvs(p.environments) as e}<span class="tag">{e}</span>{/each}
+                  </div>
+                  <span class="pill archived-pill">archived</span>
+                </div>
+                <button class="unarchive-btn" onclick={() => handleUnarchive(p.id)} disabled={atLimit}>Unarchive</button>
+              </div>
+            {/each}
+          </div>
+        {/if}
+      </div>
+    {/if}
   </div>
 </div>
 
@@ -99,6 +168,10 @@
     font-size: clamp(22px, 2vw, 28px);
     letter-spacing: -0.02em;
     line-height: 1.1;
+  }
+
+  :global(.toggle-archived) {
+    margin-right: 5px;
   }
 
   .actions {
@@ -206,9 +279,69 @@
     color: var(--bg);
   }
 
-  .btn-primary:hover {
+  .btn-primary:hover:not(:disabled) {
     opacity: 0.85;
   }
+
+  .btn-primary:disabled {
+    opacity: 0.35;
+    cursor: default;
+  }
+
+
+  .project-row.archived {
+    opacity: 0.5;
+    cursor: default;
+    pointer-events: none;
+    flex: 1;
+  }
+
+  .archived-pill {
+    font: 500 10.5px 'Geist Mono', ui-monospace, monospace;
+    padding: 2px 7px;
+    border-radius: 4px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    background: var(--bg-3);
+    border: 1px solid var(--line);
+    color: var(--ink-3);
+    white-space: nowrap;
+  }
+
+  .unarchive-btn {
+    background: transparent;
+    border: 1px solid var(--line-2);
+    border-radius: 6px;
+    color: var(--ink-2);
+    font: 500 12px 'Geist', ui-sans-serif;
+    padding: 5px 10px;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: border-color .15s, color .15s;
+  }
+
+  .unarchive-btn:hover:not(:disabled) {
+    border-color: var(--ink);
+    color: var(--ink);
+  }
+
+  .unarchive-btn:disabled {
+    opacity: 0.35;
+    cursor: default;
+  }
+
+  .archived-section {
+    margin-top: 28px;
+  }
+
+  .archived-label {
+    font-size: 11px;
+    color: var(--ink-3);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: 10px;
+  }
+
 
   .settings-btn {
     background: var(--bg-2);

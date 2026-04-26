@@ -13,6 +13,8 @@
   import SegmentDetail from './pages/SegmentDetail.svelte'
   import AuditLog      from './pages/AuditLog.svelte'
   import Settings      from './pages/Settings.svelte'
+  import Organizations from './pages/Organizations.svelte'
+  import OrgSettings   from './pages/OrgSettings.svelte'
   import Profile       from './pages/Profile.svelte'
   import Snackbar      from './Snackbar.svelte'
 
@@ -128,16 +130,21 @@
     <div class="user-wrap">
       {#if userMenuOpen}
         <div class="user-menu">
-          <div class="menu-org-label mono">Organization</div>
+          <button class="section-label menu-section-label" class:active={page === 'organizations'} onclick={() => { nav('organizations'); userMenuOpen = false }}>
+            <span>⊞</span> Organizations
+          </button>
           {#each orgStore.orgs as o}
-            <button
-              class="menu-item menu-org-item"
-              class:active={orgStore.activeId === o.id}
-              onclick={() => orgStore.setActive(o.id)}
-            >
-              <span class="menu-check">{orgStore.activeId === o.id ? '✓' : ''}</span>
-              {o.name}
-            </button>
+            <div class="menu-org-row">
+              <button
+                class="menu-item menu-org-item"
+                class:active={orgStore.activeId === o.id}
+                onclick={() => orgStore.setActive(o.id)}
+              >
+                <span class="menu-check">{orgStore.activeId === o.id ? '✓' : ''}</span>
+                {o.name}
+              </button>
+              <button class="org-cog" onclick={() => { nav('org-settings'); userMenuOpen = false }}>⚙</button>
+            </div>
           {/each}
           <div class="menu-divider"></div>
           <button class="menu-item" onclick={() => { nav('profile'); userMenuOpen = false }}>
@@ -204,6 +211,10 @@
       <Settings activeProject={String(activeProject ?? '')} projectName={activeProjectName} />
     {:else if page === 'profile'}
       <Profile />
+    {:else if page === 'organizations'}
+      <Organizations {nav} onSelectOrg={id => { orgStore.setActive(id); nav('organizations') }} />
+    {:else if page === 'org-settings'}
+      <OrgSettings />
     {/if}
   </main>
 </div>
@@ -411,12 +422,49 @@
     z-index: 10;
   }
 
-  .menu-org-label {
-    font-size: 10px;
-    color: var(--ink-3);
-    text-transform: uppercase;
-    letter-spacing: 0.1em;
+
+  .menu-section-label {
     padding: 8px 12px 4px;
+    margin-bottom: 0;
+  }
+
+  .menu-org-row {
+    display: flex;
+    align-items: center;
+    transition: background .1s;
+  }
+
+  .menu-org-row:hover {
+    background: var(--line);
+  }
+
+  .menu-org-row .menu-org-item {
+    flex: 1;
+  }
+
+  .menu-org-row .menu-org-item:hover {
+    background: transparent;
+    color: var(--ink);
+  }
+
+  .org-cog {
+    background: none;
+    border: none;
+    color: var(--ink-3);
+    font-size: 16px;
+    padding: 0 8px;
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity .15s, color .15s;
+    flex-shrink: 0;
+  }
+
+  .menu-org-row:hover .org-cog {
+    opacity: 1;
+  }
+
+  .org-cog:hover {
+    color: var(--ink);
   }
 
   .menu-org-item {
