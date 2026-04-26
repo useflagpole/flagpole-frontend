@@ -18,6 +18,7 @@
   const proj = $derived(projectStore.projects.find(p => String(p.id) === activeProject))
 
   const ownerName = $derived(userStore.username)
+  const isAdmin   = $derived(orgStore.activeOrg?.role === 'admin')
 
   let nameInput    = $state('')
   let originalName = $state('')
@@ -33,6 +34,8 @@
       projectStore.updateName(projId, r.data.name)
       originalName = r.data.name
       notify.success('Project renamed', `Project is now "${r.data.name}".`)
+    } else if (r.status === 403) {
+      notify.error('Permission denied', 'Admin role required to rename this project.')
     } else {
       notify.error('Rename failed', r.message)
     }
@@ -135,7 +138,7 @@
               <div class="setting-title">Project name</div>
               <div class="setting-sub mono">Used in the SDK and dashboard</div>
             </div>
-            <input class="text-input" bind:value={nameInput} />
+            <input class="text-input" bind:value={nameInput} disabled={!isAdmin} />
           </div>
           <div class="setting-row">
             <div class="setting-label">
@@ -147,7 +150,7 @@
           <div class="save-row">
             <button
               class="btn btn-primary btn-sm"
-              disabled={nameInput.trim() === originalName || nameSaving}
+              disabled={!isAdmin || nameInput.trim() === originalName || nameSaving}
               onclick={saveProjectName}
             >{nameSaving ? 'Saving…' : 'Save'}</button>
           </div>
@@ -249,14 +252,14 @@
               <div class="setting-title">Archive project</div>
               <div class="setting-sub mono">Disables all flags and removes from the dashboard. Reversible.</div>
             </div>
-            <div><button class="btn btn-danger">Archive project</button></div>
+            <div><button class="btn btn-danger" disabled={!isAdmin}>Archive project</button></div>
           </div>
           <div class="setting-row">
             <div class="setting-label">
               <div class="setting-title">Delete project</div>
               <div class="setting-sub mono">Permanently deletes all flags, segments and SDK keys. Not reversible.</div>
             </div>
-            <div><button class="btn btn-danger">Delete project</button></div>
+            <div><button class="btn btn-danger" disabled={!isAdmin}>Delete project</button></div>
           </div>
         </div>
       </div>
@@ -391,6 +394,11 @@
 
   .text-input:focus {
     border-color: var(--line-2);
+  }
+
+  .text-input:disabled {
+    opacity: 0.5;
+    cursor: default;
   }
 
   .owner-text {
@@ -568,8 +576,13 @@
     border-color: #7a3333;
   }
 
-  .btn-danger:hover {
+  .btn-danger:hover:not(:disabled) {
     opacity: 0.75;
+  }
+
+  .btn-danger:disabled {
+    opacity: 0.35;
+    cursor: default;
   }
 
   .mono {
