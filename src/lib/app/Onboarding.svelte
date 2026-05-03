@@ -73,7 +73,7 @@
   }
 
   function goToDashboard() {
-    if (submittedOrgDto) orgStore.push({ id: submittedOrgDto.id, name: submittedOrgDto.name, role: 'admin' })
+    if (submittedOrgDto) orgStore.push({ id: submittedOrgDto.id, name: submittedOrgDto.name, role: 'admin', isOwner: true })
     onDone()
   }
 </script>
