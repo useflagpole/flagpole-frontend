@@ -1,7 +1,7 @@
 <script lang="ts">
   import { orgStore } from '../../org.svelte'
   import { projectStore } from '../../project.svelte'
-  import { getFlagDetail, createFlagEnvConfig, listSegments, type FlagDetailDTO, type SegmentDTO, type AuditLogDTO } from '../../api/flags'
+  import { getFlagDetail, getFlagAudit, createFlagEnvConfig, listSegments, type FlagDetailDTO, type SegmentDTO, type AuditLogDTO } from '../../api/flags'
   import { listEnvironments } from '../../api/environments'
   import EvalChart from '../EvalChart.svelte'
   import ActionBadge from '../ActionBadge.svelte'
@@ -68,9 +68,9 @@
   }
 
   async function loadAudit() {
-    if (!orgId || !projId || !flag || !env) return
+    if (!orgId || !projId || !activeFlag || !env) return
     auditLoading = true
-    const r = await getFlagAudit(orgId, projId, flag.id, env)
+    const r = await getFlagAudit(orgId, projId, activeFlag, env)
     auditLoading = false
     if (r.ok) flagAudit = r.data.slice(0, 5)
     else flagAudit = []
