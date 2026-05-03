@@ -1,6 +1,7 @@
 <script lang="ts">
   import { login, signup } from './api/auth'
   import { session } from './session.svelte'
+  import { notify } from './toasts.svelte'
 
   const { initialTab = 'login' }: { initialTab?: 'login' | 'signup' } = $props();
   let tab = $state<'login' | 'signup'>(initialTab);
@@ -55,6 +56,7 @@
     signupLoading = false;
 
     if (result.ok) {
+      notify.success('Account created', 'You can now log in.');
       tab = 'login';
       loginEmail = signupEmail;
       return;

@@ -37,8 +37,9 @@
     'project.rename',
     'project.archive',
     'project.unarchive',
-    'org.create',
-    'org.rename',
+    'env.create',
+    'env.rename',
+    'env.delete',
   ]
 
   const filtered = $derived(entries.filter(a => {

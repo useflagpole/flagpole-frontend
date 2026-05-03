@@ -8,9 +8,9 @@
   --ink-2:       #a4a4ac;
   --ink-3:       #66666d;
   --ink-4:       #3f3f45;
-  --accent:      #E55A00;
-  --accent-dim:  #E55A002e;
-  --accent-line: #E55A0066;
+  --accent:      #E55A01;
+  --accent-dim:  rgba(229,90,1,0.18);
+  --accent-line: rgba(229,90,1,0.4);
   --maxw:        1120px;
 }
 
