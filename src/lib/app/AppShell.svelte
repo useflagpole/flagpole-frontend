@@ -177,7 +177,7 @@
         activeProject={String(activeProject ?? '')}
         projectName={activeProjectName}
         {nav}
-        onSelectFlag={id => { activeFlag = id; nav('flagdetail') }}
+        onSelectFlag={id => { activeFlag = Number(id); nav('flagdetail') }}
       />
     {:else if page === 'projects'}
       <Projects
@@ -192,10 +192,10 @@
         activeProject={String(activeProject ?? '')}
         projectName={activeProjectName}
         {nav}
-        onSelectFlag={id => { activeFlag = id; nav('flagdetail') }}
+        onSelectFlag={id => { activeFlag = Number(id); nav('flagdetail') }}
       />
     {:else if page === 'flagdetail'}
-      <FlagDetail activeProject={String(activeProject ?? '')} projectName={activeProjectName} {activeFlag} {nav} />
+      <FlagDetail activeProject={String(activeProject ?? '')} projectName={activeProjectName} activeFlag={activeFlag ?? 0} {nav} />
     {:else if page === 'segments'}
       <Segments
         activeProject={String(activeProject ?? '')}

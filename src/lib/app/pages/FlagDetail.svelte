@@ -1,167 +1,225 @@
 <script lang="ts">
-  import { projects, flags, flagRules, evalSeries, auditLog } from '../data'
+  import { orgStore } from '../../org.svelte'
+  import { projectStore } from '../../project.svelte'
+  import { getFlagDetail, getFlagAudit, createFlagEnvConfig, listSegments, type FlagDetailDTO, type SegmentDTO, type AuditLogDTO } from '../../api/flags'
+  import { listEnvironments } from '../../api/environments'
   import EvalChart from '../EvalChart.svelte'
-  import Toggle from '../Toggle.svelte'
   import ActionBadge from '../ActionBadge.svelte'
   import FlagIcon from '../FlagIcon.svelte'
+  import FlagConfigFlow from '../FlagConfigFlow.svelte'
 
   let { activeProject, projectName, activeFlag, nav }: {
     activeProject: string
     projectName: string
-    activeFlag: string
+    activeFlag: number
     nav: (p: string) => void
   } = $props()
 
-  const proj        = $derived(projects.find(p => p.id === activeProject) ?? projects[0])
-  const projFlags   = $derived(flags[proj.id] ?? [])
-  const flag        = $derived(projFlags.find(f => f.id === activeFlag) ?? projFlags[0])
-  const rules       = $derived(flagRules[flag?.id ?? ''] ?? [])
-  const flagAudit   = $derived(auditLog.filter(a => a.target === flag?.key).slice(0, 5))
-  const chartSeries = $derived(evalSeries[flag?.key ?? ''] ?? evalSeries['rate-limit-v3'])
+  const orgId = $derived(orgStore.activeId)
+  const projId = $derived(projectStore.projects.find(p => String(p.id) === activeProject)?.id ?? 0)
 
-  let rollout = $state(0)
-  let status  = $state<'on' | 'off'>('off')
-  let env     = $state('production')
+  let flag = $state<FlagDetailDTO | null>(null)
+  let segments = $state<SegmentDTO[]>([])
+  let flagAudit = $state<AuditLogDTO[]>([])
+  let chartSeries = $state<number[]>([])
+  let envs = $state<string[]>([])
+  let env = $state('')
+  let configExists = $state(false)
+
+  let loading = $state(false)
+  let auditLoading = $state(false)
+
+  function sparkline(peak: number, noise: number): number[] {
+    return Array.from({ length: 28 }, (_, i) => {
+      const base = Math.sin(i / 4) * 0.3 + 0.6
+      return Math.max(0, Math.round(peak * base * (0.85 + Math.random() * noise)))
+    })
+  }
+
+  const MOCK_EVAL_SERIES: Record<string, number[]> = {}
+
+  async function loadFlag() {
+    if (!activeFlag || !orgId || !projId || !env) return
+    loading = true
+    const r = await getFlagDetail(orgId, projId, activeFlag, env)
+    if (r.ok) {
+      flag = r.data
+      configExists = r.data.status !== ''
+      chartSeries = MOCK_EVAL_SERIES[r.data.key] ?? []
+    }
+    loading = false
+  }
+
+  async function loadSegments() {
+    if (!orgId || !projId) return
+    const r = await listSegments(orgId, projId)
+    if (r.ok) segments = r.data
+  }
+
+  async function loadEnvs() {
+    if (!orgId || !projId) return
+    const r = await listEnvironments(orgId, projId)
+    if (r.ok && r.data.length > 0) {
+      envs = r.data
+      env = r.data[0]
+      loadFlag()
+      loadAudit()
+    }
+  }
+
+  async function loadAudit() {
+    if (!orgId || !projId || !activeFlag || !env) return
+    auditLoading = true
+    const r = await getFlagAudit(orgId, projId, activeFlag, env)
+    auditLoading = false
+    if (r.ok) flagAudit = r.data.slice(0, 5)
+    else flagAudit = []
+  }
+
+  async function createConfigForEnv() {
+    if (!activeFlag || !orgId || !projId || !env) return
+    const r = await createFlagEnvConfig(orgId, projId, activeFlag, env)
+    if (r.ok) {
+      configExists = true
+      notify.success('Config created', `Configuration created for ${env}`)
+      loadFlag()
+      loadAudit()
+    } else {
+      notify.error('Failed', r.message)
+    }
+  }
+
+  function switchEnv(e: string) {
+    env = e
+    configExists = false
+    loading = true
+    loadFlag()
+    loadAudit()
+  }
 
   $effect(() => {
-    rollout = flag?.rollout ?? 0
-    status  = flag?.status ?? 'off'
-    env     = proj.env[0] ?? 'production'
+    if (activeFlag) {
+      flag = null
+      configExists = false
+      env = ''
+      loadSegments()
+      loadEnvs()
+    }
   })
 
-  const OP_LABELS: Record<string, string> = {
-    equals: '=',
-    not_in: '∉',
-    in: '∈',
-    lt: '<',
-    lte: '≤',
-    gte: '≥',
-    gt: '>',
-    ends_with: 'ends with',
+  function formatDate(iso: string): string {
+    const d = new Date(iso)
+    return d.toLocaleString('en-US', {
+      year: 'numeric', month: '2-digit', day: '2-digit',
+      hour: '2-digit', minute: '2-digit', hour12: false,
+    })
+  }
+
+  function onFlagSaved() {
+    loadFlag()
+    loadAudit()
   }
 </script>
 
-{#if flag}
-<div class="page-shell">
-  <header class="page-header">
-    <span class="eyebrow">{projectName}</span>
-    <div class="title-row">
-      <button class="back-btn" onclick={() => nav('flags')}>←</button>
-      <h1><span class="page-icon"><FlagIcon size={22} /></span> <span class="title-prefix">flags /</span> <span class="mono">{flag.key}</span></h1>
-      <div class="actions">
-        <button class="btn btn-danger">Archive</button>
+{#if envs.length === 0}
+  <div class="page-shell">
+    <header class="page-header">
+      <span class="eyebrow">{projectName}</span>
+      <div class="title-row">
+        <button class="back-btn" onclick={() => nav('flags')}>←</button>
+        <h1><span class="page-icon"><FlagIcon size={22} /></span> <span class="title-prefix">flags /</span> <span class="mono">No environments</span></h1>
       </div>
-    </div>
-  </header>
-
-  <div class="content">
-    <div class="env-tabs">
-      {#each proj.env as e}
-        <button class="env-tab" class:active={env === e} onclick={() => env = e}>{e}</button>
-      {/each}
-    </div>
-
-    <div class="two-col">
-      <div class="panel">
-        <div class="panel-bar">
-          <span>Status &amp; rollout</span>
-          <span class="panel-bar-right">{env}</span>
-        </div>
-        <div class="panel-body">
-          <div class="toggle-row">
-            <div>
-              <div class="toggle-title">Flag enabled</div>
-              <div class="toggle-sub mono">
-                {status === 'on' ? 'Serving to rollout %' : 'Returning default value'}
-              </div>
-            </div>
-            <Toggle on={status === 'on'} onchange={v => status = v ? 'on' : 'off'} />
-          </div>
-          <div class="rollout-label">
-            <span class="rollout-name">Rollout percentage</span>
-            <span class="rollout-pct mono">{rollout}%</span>
-          </div>
-          <input type="range" min={0} max={100} bind:value={rollout} class="slider" />
-          <div class="range-ticks mono">
-            <span>0%</span><span>50%</span><span>100%</span>
-          </div>
-          <div class="save-row">
-            <button class="btn btn-primary btn-sm">Save changes</button>
-          </div>
-        </div>
+    </header>
+    <div class="content">
+      <div class="empty-state">
+        <div class="empty-icon">⚠</div>
+        <h2>No environments configured</h2>
+        <p>You need to add at least one environment before configuring flags.</p>
+        <button class="btn btn-primary" onclick={() => nav('settings')}>Go to Project Settings →</button>
       </div>
-
-      <div class="panel">
-        <div class="panel-bar">
-          <span>Evaluations · last 7 days</span>
-          <span class="panel-bar-right">{flag.evals.toLocaleString()} total</span>
-        </div>
-        <div class="panel-body">
-          <EvalChart series={chartSeries} />
-          <div class="eval-stats">
-            {#each [
-              ['Avg / day', Math.round(flag.evals / 7).toLocaleString()],
-              ['Peak',      Math.round(flag.evals / 5).toLocaleString()],
-              ['Unique',    Math.round(flag.evals / 3.2).toLocaleString()],
-            ] as [k, v]}
-              <div>
-                <div class="stat-label">{k}</div>
-                <div class="stat-value">{v}</div>
-              </div>
-            {/each}
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <div class="panel">
-      <div class="panel-bar">
-        <span>Targeting rules</span>
-        <button class="btn btn-ghost btn-sm">+ Add rule</button>
-      </div>
-      <div class="panel-body">
-        {#if rules.length === 0}
-          <p class="no-rules mono">No targeting rules — serving to all users based on rollout %.</p>
-        {/if}
-        {#each rules as r}
-          <div class="rule-row">
-            <span class="rule-if mono">IF</span>
-            <code class="chip">{r.attr}</code>
-            <span class="op mono">{OP_LABELS[r.op] ?? r.op}</span>
-            <code class="chip accent">{r.value}</code>
-            <span class="serve mono">→ serve</span>
-            <code class="chip" style="color: {r.action === 'on' ? 'var(--accent)' : r.action.startsWith('variant:') ? '#8fa8e8' : 'var(--ink-3)'}">{r.action}</code>
-            <button class="btn btn-ghost btn-sm edit-btn">Edit</button>
-          </div>
-        {/each}
-        {#if rules.length > 0}
-          <div class="default-rule mono">
-            <span class="default-label">Default</span> → serve based on rollout % ({rollout}%)
-          </div>
-        {/if}
-      </div>
-    </div>
-
-    <div class="panel">
-      <div class="panel-bar">
-        <span>Audit trail · {flag.key}</span>
-      </div>
-      {#if flagAudit.length === 0}
-        <div class="empty mono">No audit events</div>
-      {/if}
-      {#each flagAudit as a}
-        <div class="audit-row">
-          <span class="audit-ts mono">{a.ts}</span>
-          <ActionBadge action={a.action} />
-          <span class="audit-detail">{a.detail}</span>
-          <span class="audit-actor">{a.actor}</span>
-        </div>
-      {/each}
     </div>
   </div>
-</div>
+{:else if flag || loading}
+  <div class="page-shell">
+    <header class="page-header">
+      <span class="eyebrow">{projectName}</span>
+      <div class="title-row">
+        <button class="back-btn" onclick={() => nav('flags')}>←</button>
+        <h1><span class="page-icon"><FlagIcon size={22} /></span> <span class="title-prefix">flags /</span> <span class="mono">{flag ? flag.key : activeFlag}</span></h1>
+      </div>
+    </header>
+
+    <div class="content">
+      <div class="env-tabs">
+        {#each envs as e}
+          <button class="env-tab" class:active={env === e} onclick={() => switchEnv(e)}>{e}</button>
+        {/each}
+      </div>
+
+      {#if loading}
+        <div class="empty mono" style="padding: 64px; color: var(--ink-3)">Loading…</div>
+      {:else if !configExists}
+        <div class="config-missing-state">
+          <div class="missing-icon">◌</div>
+          <h2>Not configured for {env}</h2>
+          <p>This flag has no configuration for the <strong>{env}</strong> environment.</p>
+          <button class="btn btn-primary" onclick={createConfigForEnv}>
+            Create configuration for {env}
+          </button>
+        </div>
+      {:else}
+        <FlagConfigFlow
+          flag={{
+            key: flag.key,
+            type: flag.type,
+            desc: flag.description,
+            status: flag.status,
+            rollout: flag.rollout,
+            rolloutEnabled: flag.rolloutEnabled,
+            defaultValue: String(flag.defaultValue ?? ''),
+            servedValue: String(flag.servedValue ?? ''),
+            segmentOverrides: flag.segmentOverrides.map(o => ({
+              id: String(o.segmentId),
+              name: o.name,
+              userCount: o.userCount,
+              value: String(o.value),
+              enabled: o.enabled,
+            })),
+          }}
+          env={env}
+          segments={segments.map(s => ({ id: String(s.id), name: s.name, userCount: s.userCount }))}
+          orgId={orgId}
+          projectId={projId}
+          flagId={flag.id}
+          onSave={onFlagSaved}
+        />
+
+        <div class="panel">
+          <div class="panel-bar">
+            <span>Audit trail · {flag.key} · {env}</span>
+          </div>
+          {#if auditLoading}
+            <div class="empty mono">Loading…</div>
+          {:else if flagAudit.length === 0}
+            <div class="empty mono">No audit events</div>
+          {:else}
+            {#each flagAudit as a}
+              <div class="audit-row">
+                <span class="audit-ts mono">{formatDate(a.createdAt)}</span>
+                <ActionBadge action={a.action} />
+                <span class="audit-detail">{a.detail}</span>
+                <span class="audit-actor mono">{a.actor}</span>
+              </div>
+            {/each}
+          {/if}
+        </div>
+      {/if}
+    </div>
+  </div>
 {:else}
-  <div class="empty mono" style="padding: 64px; color: var(--ink-3)">Flag not found</div>
+  <div class="page-shell">
+    <div class="empty mono" style="padding: 64px; color: var(--ink-3)">Flag not found</div>
+  </div>
 {/if}
 
 <style>
@@ -206,7 +264,7 @@
     color: var(--ink-2);
     font-size: 16px;
     cursor: pointer;
-    transition: border-color .15s, color .15s;
+    transition: border-color 0.15s, color 0.15s;
   }
 
   .back-btn:hover {
@@ -225,12 +283,6 @@
   .title-prefix {
     color: var(--ink-3);
     font-weight: 400;
-  }
-
-  .actions {
-    display: flex;
-    gap: 8px;
-    margin-left: auto;
   }
 
   .content {
@@ -253,7 +305,7 @@
     color: var(--ink-2);
     cursor: pointer;
     margin-bottom: -1px;
-    transition: color .1s;
+    transition: color 0.1s;
   }
 
   .env-tab.active {
@@ -262,23 +314,12 @@
     font-weight: 500;
   }
 
-  .two-col {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 16px;
-    margin-bottom: 16px;
-  }
-
   .panel {
     background: var(--bg-2);
     border: 1px solid var(--line);
     border-radius: 10px;
     overflow: hidden;
     margin-bottom: 16px;
-  }
-
-  .two-col .panel {
-    margin-bottom: 0;
   }
 
   .panel-bar {
@@ -291,155 +332,6 @@
     color: var(--ink-3);
   }
 
-  .panel-bar-right {
-    color: var(--ink-2);
-  }
-
-  .panel-body {
-    padding: 20px 22px;
-  }
-
-  .toggle-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: 24px;
-  }
-
-  .toggle-title {
-    font-weight: 500;
-    font-size: 15px;
-    margin-bottom: 4px;
-  }
-
-  .toggle-sub {
-    font-size: 12px;
-    color: var(--ink-3);
-  }
-
-  .rollout-label {
-    display: flex;
-    justify-content: space-between;
-    margin-bottom: 8px;
-  }
-
-  .rollout-name {
-    font-size: 13px;
-    color: var(--ink-2);
-  }
-
-  .rollout-pct {
-    font-size: 14px;
-    font-weight: 600;
-    color: var(--accent);
-  }
-
-  .slider {
-    width: 100%;
-    accent-color: var(--accent);
-    cursor: pointer;
-  }
-
-  .range-ticks {
-    display: flex;
-    justify-content: space-between;
-    font-size: 11px;
-    color: var(--ink-3);
-    margin-top: 4px;
-  }
-
-  .save-row {
-    margin-top: 20px;
-  }
-
-  .eval-stats {
-    display: flex;
-    gap: 24px;
-    margin-top: 14px;
-  }
-
-  .stat-label {
-    font: 400 10.5px 'Geist Mono', ui-monospace, monospace;
-    color: var(--ink-3);
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    margin-bottom: 4px;
-  }
-
-  .stat-value {
-    font-weight: 500;
-    font-size: 16px;
-    letter-spacing: -0.02em;
-  }
-
-  .rule-row {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    flex-wrap: wrap;
-    padding: 10px 14px;
-    background: var(--bg-3);
-    border-radius: 6px;
-    margin-bottom: 6px;
-  }
-
-  .rule-if {
-    font-size: 10.5px;
-    color: var(--ink-3);
-    min-width: 28px;
-  }
-
-  .op {
-    font-size: 12px;
-    color: var(--ink-3);
-  }
-
-  .serve {
-    font-size: 10.5px;
-    color: var(--ink-3);
-    margin-left: 4px;
-  }
-
-  .chip {
-    font: 500 12px 'Geist Mono', ui-monospace, monospace;
-    color: var(--ink);
-    background: var(--bg-2);
-    border: 1px solid var(--line);
-    border-radius: 4px;
-    padding: 2px 8px;
-  }
-
-  .chip.accent {
-    color: var(--accent);
-  }
-
-  .edit-btn {
-    margin-left: auto;
-    padding: 2px 8px;
-    font-size: 11px;
-  }
-
-  .no-rules {
-    font-size: 12px;
-    color: var(--ink-3);
-    padding: 16px 0;
-    margin: 0;
-  }
-
-  .default-rule {
-    margin-top: 16px;
-    padding: 12px 14px;
-    background: var(--bg-3);
-    border-radius: 6px;
-    border: 1px solid var(--line);
-    font: 400 12px 'Geist Mono', ui-monospace, monospace;
-    color: var(--ink-3);
-  }
-
-  .default-label {
-    color: var(--ink-2);
-  }
-
   .audit-row {
     display: flex;
     align-items: center;
@@ -448,6 +340,15 @@
     border-bottom: 1px solid var(--line);
     font-size: 12.5px;
     color: var(--ink-2);
+    transition: background 0.1s;
+  }
+
+  .audit-row:hover {
+    background: var(--bg-3);
+  }
+
+  .audit-row:last-child {
+    border-bottom: none;
   }
 
   .audit-ts {
@@ -462,6 +363,7 @@
   }
 
   .audit-actor {
+    font-size: 11px;
     color: var(--ink-3);
   }
 
@@ -470,6 +372,64 @@
     color: var(--ink-3);
     text-align: center;
     padding: 64px 24px;
+  }
+
+  .empty-state {
+    text-align: center;
+    padding: 80px 40px;
+    background: var(--bg-2);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    max-width: 500px;
+    margin: 60px auto;
+  }
+
+  .empty-icon {
+    font-size: 48px;
+    margin-bottom: 16px;
+    opacity: 0.5;
+  }
+
+  .empty-state h2 {
+    font-size: 20px;
+    font-weight: 500;
+    margin: 0 0 8px;
+    color: var(--ink);
+  }
+
+  .empty-state p {
+    font-size: 14px;
+    color: var(--ink-3);
+    margin: 0 0 24px;
+  }
+
+  .config-missing-state {
+    text-align: center;
+    padding: 80px 40px;
+    background: var(--bg-2);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    max-width: 500px;
+    margin: 60px auto;
+  }
+
+  .missing-icon {
+    font-size: 48px;
+    margin-bottom: 16px;
+    color: var(--ink-3);
+  }
+
+  .config-missing-state h2 {
+    font-size: 20px;
+    font-weight: 500;
+    margin: 0 0 8px;
+    color: var(--ink);
+  }
+
+  .config-missing-state p {
+    font-size: 14px;
+    color: var(--ink-3);
+    margin: 0 0 24px;
   }
 
   .btn {
@@ -481,12 +441,7 @@
     font: 500 13.5px 'Geist', ui-sans-serif;
     border: 1px solid transparent;
     cursor: pointer;
-    transition: opacity .15s;
-  }
-
-  .btn-sm {
-    font-size: 12px;
-    padding: 5px 10px;
+    transition: opacity 0.15s;
   }
 
   .btn-primary {
@@ -496,26 +451,6 @@
 
   .btn-primary:hover {
     opacity: 0.85;
-  }
-
-  .btn-ghost {
-    background: transparent;
-    color: var(--ink);
-    border-color: var(--line-2);
-  }
-
-  .btn-ghost:hover {
-    border-color: var(--ink);
-  }
-
-  .btn-danger {
-    background: transparent;
-    color: #e07070;
-    border-color: #7a3333;
-  }
-
-  .btn-danger:hover {
-    opacity: 0.75;
   }
 
   .mono {

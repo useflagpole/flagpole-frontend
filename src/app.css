@@ -11,6 +11,9 @@
   --accent:      #E55A01;
   --accent-dim:  rgba(229,90,1,0.18);
   --accent-line: rgba(229,90,1,0.4);
+  --seg-color:   #b87de8;
+  --seg-dim:     rgba(184,125,232,0.15);
+  --seg-line:    rgba(184,125,232,0.4);
   --maxw:        1120px;
 }
 
