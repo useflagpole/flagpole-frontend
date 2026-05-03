@@ -5,6 +5,7 @@
   import UndefinedNode from './UndefinedNode.svelte'
   import BoolEditor from './BoolEditor.svelte'
   import { notify } from '../toasts.svelte'
+  import { updateFlagConfig } from '../api/flags'
 
   const TYPE_META: Record<string, { label: string; glyph: string; color: string }> = {
     bool:   { label: 'Boolean', glyph: '⊙', color: '#8fa8e8' },
@@ -12,15 +13,13 @@
     number: { label: 'Number',  glyph: '#',  color: '#c8a855' },
   }
 
-  const MOCK_SEGMENTS = [
-    { id: 's1', name: 'beta-users',    userCount: 1240 },
-    { id: 's2', name: 'pro-plan',      userCount: 8420 },
-    { id: 's3', name: 'enterprise',    userCount: 340  },
-    { id: 's7', name: 'internal-team', userCount: 38   },
-  ]
-
   let {
     flag,
+    env,
+    segments = [],
+    orgId,
+    projectId,
+    flagId,
     onSave,
   }: {
     flag: {
@@ -40,6 +39,11 @@
         enabled: boolean
       }[]
     }
+    env: string
+    segments?: { id: string; name: string; userCount: number }[]
+    orgId: number
+    projectId: number
+    flagId: number
     onSave?: () => void
   } = $props()
 
@@ -48,7 +52,7 @@
   let rollout = $state(flag.rollout)
   let servedValue = $state(flag.servedValue)
   let defaultValue = $state(flag.defaultValue)
-  let segments = $state(flag.segmentOverrides.map(s => ({ ...s })))
+  let segOverrides = $state(flag.segmentOverrides.map(s => ({ ...s })))
   let dirty = $state(false)
   let addDropOpen = $state(false)
   let saving = $state(false)
@@ -56,7 +60,7 @@
   const ftype = $derived(flag.type)
   const typeMeta = $derived(TYPE_META[ftype])
   const isOn = $derived(status === 'on')
-  const activeSegs = $derived(segments.filter(s => s.enabled))
+  const activeSegs = $derived(segOverrides.filter(s => s.enabled))
 
   function markDirty() {
     dirty = true
@@ -68,47 +72,76 @@
     rollout = flag.rollout
     servedValue = flag.servedValue
     defaultValue = flag.defaultValue
-    segments = flag.segmentOverrides.map(s => ({ ...s }))
+    segOverrides = flag.segmentOverrides.map(s => ({ ...s }))
     dirty = false
   }
 
   async function handleSave() {
+    if (!orgId || !projectId) return
     saving = true
-    await new Promise(r => setTimeout(r, 400))
-    dirty = false
+
+    const typedDefault = parseValue(ftype, defaultValue)
+    const typedServed = parseValue(ftype, servedValue)
+    const overrides = segOverrides.map(s => ({
+      segmentId: Number(s.id),
+      value: parseValue(ftype, s.value),
+      enabled: s.enabled,
+    }))
+
+    try {
+      const r = await updateFlagConfig(orgId, projectId, flagId, env, {
+        enabled: isOn,
+        rolloutEnabled,
+        rolloutPercentage: rollout,
+        defaultValue: typedDefault,
+        servedValue: typedServed,
+        overrides,
+      })
+      if (!r.ok) {
+        notify.error('Failed', r.message)
+        saving = false
+        return
+      }
+
+      dirty = false
+      notify.success('Saved', 'Flag configuration updated')
+      onSave?.()
+    } catch {
+      notify.error('Failed', 'Network error while saving')
+    }
+
     saving = false
-    notify.success('Saved', 'Flag configuration updated')
-    onSave?.()
   }
 
-  function addSegment(seg: typeof MOCK_SEGMENTS[0]) {
-    const existing = segments.find(s => s.id === seg.id)
+  function parseValue(type: string, raw: string): boolean | string | number {
+    if (type === 'bool') return raw === 'true'
+    if (type === 'number') return Number(raw)
+    return raw
+  }
+
+  function addSegment(seg: { id: string; name: string; userCount: number }) {
+    const existing = segOverrides.find(s => s.id === seg.id)
     if (existing) {
-      segments = segments.map(s => s.id === seg.id ? { ...s, enabled: true } : s)
+      segOverrides = segOverrides.map(s => s.id === seg.id ? { ...s, enabled: true } : s)
     } else {
-      segments = [...segments, { ...seg, value: 'true', enabled: true }]
+      segOverrides = [...segOverrides, { ...seg, value: ftype === 'bool' ? 'true' : ftype === 'number' ? '0' : '', enabled: true }]
     }
     addDropOpen = false
     markDirty()
   }
 
   function removeSegment(id: string) {
-    segments = segments.filter(s => s.id !== id)
+    segOverrides = segOverrides.filter(s => s.id !== id)
     markDirty()
   }
 
   function updateSegmentValue(id: string, value: string) {
-    segments = segments.map(s => s.id === id ? { ...s, value } : s)
-    markDirty()
-  }
-
-  function toggleSegment(id: string) {
-    segments = segments.map(s => s.id === id ? { ...s, enabled: !s.enabled } : s)
+    segOverrides = segOverrides.map(s => s.id === id ? { ...s, value } : s)
     markDirty()
   }
 
   const availableSegments = $derived(
-    MOCK_SEGMENTS.filter(s => !segments.find(x => x.id === s.id && x.enabled))
+    segments.filter(s => !segOverrides.find(x => x.id === s.id && x.enabled))
   )
 </script>
 
