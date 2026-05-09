@@ -18,6 +18,7 @@
       stroke={active ? 'var(--accent)' : 'var(--line-2)'}
       stroke-width="1.5"
       stroke-dasharray={dashed ? '4 3' : 'none'}
+      style="transition: stroke 0.25s ease"
     />
     <polyline
       points="32,3 40,7 32,11"
@@ -26,6 +27,7 @@
       stroke-width="1.5"
       stroke-linejoin="round"
       stroke-linecap="round"
+      style="transition: stroke 0.25s ease"
     />
   </svg>
 </div>
@@ -44,6 +46,7 @@
     font: 400 9px 'Geist Mono', ui-monospace, monospace;
     color: var(--ink-3);
     white-space: nowrap;
+    transition: color 0.25s ease;
   }
 
   .arrow-label.active {

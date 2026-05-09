@@ -1,4 +1,5 @@
 <script lang="ts">
+  import RangeSlider from './RangeSlider.svelte'
   import FlowNode from './FlowNode.svelte'
   import FlowArrow from './FlowArrow.svelte'
   import SplitArrow from './SplitArrow.svelte'
@@ -34,13 +35,13 @@
       segmentOverrides: {
         id: string
         name: string
-        userCount: number
         value: string
         enabled: boolean
+        priority: number
       }[]
     }
     env: string
-    segments?: { id: string; name: string; userCount: number }[]
+    segments?: { id: string; name: string }[]
     orgId: number
     projectId: number
     flagId: number
@@ -82,10 +83,11 @@
 
     const typedDefault = parseValue(ftype, defaultValue)
     const typedServed = parseValue(ftype, servedValue)
-    const overrides = segOverrides.map(s => ({
+    const overrides = segOverrides.map((s, i) => ({
       segmentId: Number(s.id),
       value: parseValue(ftype, s.value),
       enabled: s.enabled,
+      priority: s.priority || i + 1,
     }))
 
     try {
@@ -119,12 +121,12 @@
     return raw
   }
 
-  function addSegment(seg: { id: string; name: string; userCount: number }) {
+  function addSegment(seg: { id: string; name: string }) {
     const existing = segOverrides.find(s => s.id === seg.id)
     if (existing) {
       segOverrides = segOverrides.map(s => s.id === seg.id ? { ...s, enabled: true } : s)
     } else {
-      segOverrides = [...segOverrides, { ...seg, value: ftype === 'bool' ? 'true' : ftype === 'number' ? '0' : '', enabled: true }]
+      segOverrides = [...segOverrides, { ...seg, value: ftype === 'bool' ? 'true' : ftype === 'number' ? '0' : '', enabled: true, priority: segOverrides.length + 1 }]
     }
     addDropOpen = false
     markDirty()
@@ -194,7 +196,7 @@
             </div>
             {#if rolloutEnabled}
               <div class="slider-section">
-                <input type="range" min={0} max={100} bind:value={rollout} oninput={() => markDirty()} class="slider" />
+                <RangeSlider min={0} max={100} bind:value={rollout} oninput={markDirty} />
                 <div class="range-ticks mono">
                   <span>0%</span><span>50%</span><span>100%</span>
                 </div>
@@ -214,7 +216,7 @@
             <div class="seg-node-wrapper">
               <FlowNode title={s.name} icon="◎" seg style="min-width: 172px;">
                 <div class="seg-info mono">
-                  <span>{(s.userCount / 1000).toFixed(1)}k users</span>
+                  <span class="seg-priority mono">#{s.priority}</span>
                   <span class="seg-dot">·</span>
                   <span>bypasses rollout</span>
                 </div>
@@ -236,11 +238,14 @@
                     <div class="seg-dropdown-item" onclick={() => addSegment(s)}>
                       <div class="seg-dot-small" />
                       <span class="seg-dropdown-name mono">{s.name}</span>
-                      <span class="seg-dropdown-count mono">{(s.userCount / 1000).toFixed(1)}k</span>
                     </div>
                   {/each}
                 </div>
               {/if}
+            {:else if segments.length === 0}
+              <button class="add-seg-btn add-seg-btn-disabled" disabled>
+                No available segments
+              </button>
             {:else}
               <button class="add-seg-btn add-seg-btn-disabled" disabled>
                 All segments added
@@ -426,12 +431,6 @@
     margin-top: 8px;
   }
 
-  .slider {
-    width: 100%;
-    accent-color: var(--accent);
-    cursor: pointer;
-  }
-
   .range-ticks {
     display: flex;
     justify-content: space-between;
@@ -469,6 +468,11 @@
     font-size: 9px;
     color: var(--ink-3);
     margin-bottom: 7px;
+  }
+
+  .seg-priority {
+    font-weight: 600;
+    color: var(--seg-color);
   }
 
   .seg-dot {
@@ -588,11 +592,6 @@
     font: 500 11px 'Geist Mono', ui-monospace, monospace;
     color: var(--seg-color);
     flex: 1;
-  }
-
-  .seg-dropdown-count {
-    font: 400 9px 'Geist Mono', ui-monospace, monospace;
-    color: var(--ink-3);
   }
 
   .arrows-col {

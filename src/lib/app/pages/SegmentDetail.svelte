@@ -1,5 +1,15 @@
 <script lang="ts">
-  import { projects, segments, flags, flagRules } from '../data'
+  import { orgStore } from '../../org.svelte'
+  import { projectStore } from '../../project.svelte'
+  import { getSegmentDetail, updateSegment, type SegmentDetailDTO, type SegmentRuleDTO } from '../../api/flags'
+  import { SEGMENT_OPERATORS, SEG_OP_BY_ID } from '../../api/flags'
+  import { notify } from '../../toasts.svelte'
+  import SegmentStatusPills from '../SegmentStatusPills.svelte'
+  import SegmentHeroStrip from '../SegmentHeroStrip.svelte'
+  import SegmentUsedInFlags from '../SegmentUsedInFlags.svelte'
+  import SegmentActivity from '../SegmentActivity.svelte'
+  import SegmentDetails from '../SegmentDetails.svelte'
+  import SegmentPayload from '../SegmentPayload.svelte'
 
   let { activeProject, projectName, activeSegment, nav }: {
     activeProject: string
@@ -7,187 +17,330 @@
     activeSegment: string
     nav: (p: string) => void
   } = $props()
-  const projSegments = $derived(segments.filter(s => s.projectId === activeProject))
-  const seg = $derived(projSegments.find(s => s.id === activeSegment) ?? projSegments[0])
 
-  const OPS = ['equals', 'not_equals', 'in', 'not_in', 'lt', 'lte', 'gt', 'gte', 'contains', 'ends_with', 'starts_with']
-  const OP_LABELS: Record<string, string> = {
-    equals: '=',
-    not_equals: '≠',
-    in: '∈',
-    not_in: '∉',
-    lt: '<',
-    lte: '≤',
-    gt: '>',
-    gte: '≥',
-    contains: 'contains',
-    ends_with: 'ends with',
-    starts_with: 'starts with',
-  }
+  const orgId = $derived(orgStore.activeId)
+  const projId = $derived(projectStore.projects.find(p => String(p.id) === activeProject)?.id ?? 0)
 
-  type Rule = { id: string; attr: string; op: string; value: string }
-  let rules = $state<Rule[]>([])
-  let logic = $state('AND')
+  let detail = $state<SegmentDetailDTO | null>(null)
+  let editing = $state(false)
+  let loading = $state(true)
+
+  let desc = $state('')
+  let matchType = $state('AND')
+  let rules = $state<SegmentRuleDTO[]>([])
 
   $effect(() => {
-    rules = (seg?.rules ?? []).map((r, i) => ({ ...r, id: 'sr' + i }))
+    if (orgId && projId && activeSegment) {
+      loading = true
+      getSegmentDetail(orgId, projId, Number(activeSegment)).then(r => {
+        if (r.ok) {
+          detail = r.data
+          desc = r.data.description
+          matchType = r.data.matchType
+          rules = r.data.rules
+        }
+        loading = false
+      })
+    }
   })
 
-  const addRule    = () => { rules = [...rules, { id: 'sr' + Date.now(), attr: '', op: 'equals', value: '' }] }
-  const removeRule = (id: string) => { rules = rules.filter(r => r.id !== id) }
-  const updateRule = (id: string, key: string, val: string) => {
-    rules = rules.map(r => r.id === id ? { ...r, [key]: val } : r)
+  $effect(() => {
+    activeSegment
+    editing = false
+  })
+
+  const segId = $derived(detail?.id ?? 0)
+  const ruleCount = $derived(detail?.rules?.length ?? 0)
+  const flagsUsing = $derived(detail?.flagsUsing ?? [])
+  const recentAudit = $derived(detail?.recentAudit ?? [])
+  const createdAt = $derived(detail?.createdAt ?? '')
+  const updatedAt = $derived(detail?.updatedAt ?? '')
+
+  const TOTAL_USERS = 30000
+  const mockUserCount = $derived(ruleCount > 0 ? Math.floor(TOTAL_USERS * (0.15 + (ruleCount * 0.05))) : 0)
+  const reachPct = $derived(detail ? Math.min(100, (mockUserCount / TOTAL_USERS) * 100) : 0)
+  const sparkline = $derived(generateSparkline(segId))
+  const sampleUsers = $derived(generateSampleUsers(rules))
+
+  function onCancelEdit() {
+    if (detail) {
+      desc = detail.description
+      matchType = detail.matchType
+      rules = detail.rules
+    }
+    editing = false
   }
 
-  const usedInFlags = $derived(
-    Object.values(flags).flat().filter(f => {
-      const rs = flagRules[f.id] ?? []
-      return rs.some(r => r.value && r.value.includes(seg?.name ?? ''))
+  async function onSave() {
+    if (!detail) return
+    const r = await updateSegment(orgId, projId, detail.id, {
+      description: desc,
+      matchType,
+      rules: rules.map(r => ({ attribute: r.attribute, operator: r.operator, value: r.value })),
     })
-  )
+    if (r.ok) {
+      notify.success('Saved', `Segment "${detail.name}" updated`)
+      editing = false
+      loadDetail()
+    } else {
+      notify.error('Failed', r.message)
+    }
+  }
 
-  const pct = $derived(seg ? Math.min(100, (seg.userCount / 30000) * 100) : 0)
+  function loadDetail() {
+    if (orgId && projId && activeSegment) {
+      getSegmentDetail(orgId, projId, Number(activeSegment)).then(r => {
+        if (r.ok) {
+          detail = r.data
+          desc = r.data.description
+          matchType = r.data.matchType
+          rules = r.data.rules
+        }
+      })
+    }
+  }
+
+  function addRule() {
+    rules = [...rules, { id: Date.now(), segmentId: segId, attribute: '', operator: 'equals', value: '' }]
+  }
+
+  function removeRule(id: number) {
+    rules = rules.filter(r => r.id !== id)
+  }
+
+  function updateRule(id: number, patch: Partial<SegmentRuleDTO>) {
+    rules = rules.map(r => r.id === id ? { ...r, ...patch } : r)
+  }
+
+  function generateSparkline(seedKey: number): number[] {
+    let seed = seedKey || 42
+    const rand = () => { seed = (seed * 1103515245 + 12345) >>> 0; return (seed % 1000) / 1000 }
+    const pts: number[] = []
+    let v = 0.4 + rand() * 0.3
+    for (let i = 0; i < 24; i++) {
+      v += (rand() - 0.45) * 0.18
+      v = Math.max(0.1, Math.min(1, v))
+      pts.push(v)
+    }
+    pts[pts.length - 1] = Math.max(pts[pts.length - 1], 0.75)
+    return pts
+  }
+
+  function generateSampleUsers(currentRules: SegmentRuleDTO[]) {
+    const ids = ['user_8f3k2', 'user_9x1mq', 'user_3c7pa', 'user_5d2nv']
+    return ids.map(id => {
+      const attrs = currentRules.length === 0
+        ? [{ k: 'plan', v: 'pro' }, { k: 'country', v: 'US' }]
+        : currentRules.slice(0, 3).map(r => {
+            const tokens = parseListValue(r.value)
+            const val = tokens.length ? tokens[0] : (r.value || '—')
+            return { k: r.attribute || '—', v: String(val) }
+          })
+      return { id, attrs }
+    })
+  }
+
+  function parseListValue(v: string): string[] {
+    if (!v) return []
+    if (v.trim().startsWith('[')) {
+      try { const arr = JSON.parse(v); return Array.isArray(arr) ? arr.map(String) : [] } catch {}
+    }
+    return v.split(',').map(t => t.trim()).filter(Boolean)
+  }
 </script>
 
-{#if seg}
+{#if loading}
+  <div class="page-shell">
+    <div class="loading-state mono">Loading segment…</div>
+  </div>
+{:else if !detail}
+  <div class="page-shell">
+    <div class="empty mono">Segment not found</div>
+  </div>
+{:else}
 <div class="page-shell">
   <header class="page-header">
     <span class="eyebrow">{projectName}</span>
     <div class="title-row">
       <button class="back-btn" onclick={() => nav('segments')}>←</button>
-      <h1><span class="page-icon">◎</span> <span class="mono">{seg.name}</span></h1>
+      <h1><span class="page-icon">◎</span> <span class="title-prefix">segments /</span> <span class="mono">{detail.name}</span></h1>
       <div class="actions">
-        <button class="btn btn-danger">Delete</button>
-        <button class="btn btn-primary">Save segment</button>
+        {#if editing}
+          <button class="btn btn-ghost" onclick={onCancelEdit}>Cancel</button>
+          <button class="btn btn-primary" onclick={onSave}>Save changes</button>
+        {:else}
+          <button class="btn btn-danger" onclick={() => {}}>Delete</button>
+          <button class="btn btn-primary" onclick={() => editing = true}>Edit segment</button>
+        {/if}
       </div>
     </div>
   </header>
 
   <div class="content">
+    <SegmentStatusPills
+      {ruleCount}
+      {matchType}
+      flagsUsingCount={flagsUsing.length}
+      {updatedAt}
+      {mockUserCount}
+    />
+
+    <SegmentHeroStrip
+      {desc}
+      {editing}
+      {matchType}
+      {ruleCount}
+      {mockUserCount}
+      {reachPct}
+      {sparkline}
+      flagsUsingCount={flagsUsing.length}
+      onDescChange={v => desc = v}
+    />
+
     <div class="two-col">
-      <div>
+      <div class="col-left">
         <div class="panel">
           <div class="panel-bar">
             <span>Membership rules</span>
-            <div class="logic-controls">
-              <span class="logic-label mono">Match</span>
-              {#each ['AND', 'OR'] as l}
-                <button class="logic-btn" class:active={logic === l} onclick={() => logic = l}>{l}</button>
-              {/each}
-              <span class="logic-label mono">rules</span>
-            </div>
-          </div>
-          <div class="panel-body">
-            {#if rules.length === 0}
-              <p class="no-rules mono">No rules — this segment matches all users.</p>
-            {/if}
-            {#each rules as r, i}
-              {#if i > 0}
-                <div class="logic-sep">{logic}</div>
+            <span class="panel-bar-right">
+              {#if editing}
+                <span class="seg-toggle">
+                  <button class="seg-toggle-btn" class:active={matchType === 'AND'} onclick={() => matchType = 'AND'}>AND</button>
+                  <button class="seg-toggle-btn" class:active={matchType === 'OR'} onclick={() => matchType = 'OR'}>OR</button>
+                </span>
+              {:else}
+                <span class="match-badge">match <span class="match-badge-val">{matchType}</span></span>
               {/if}
-              <div class="rule-editor">
-                <input
-                  value={r.attr}
-                  oninput={e => updateRule(r.id, 'attr', (e.target as HTMLInputElement).value)}
-                  placeholder="attribute"
-                  class="rule-input"
-                  style="width: 140px"
-                />
-                <select
-                  value={r.op}
-                  onchange={e => updateRule(r.id, 'op', (e.target as HTMLSelectElement).value)}
-                  class="rule-select"
-                >
-                  {#each OPS as o}<option value={o}>{OP_LABELS[o] ?? o}</option>{/each}
-                </select>
-                <input
-                  value={r.value}
-                  oninput={e => updateRule(r.id, 'value', (e.target as HTMLInputElement).value)}
-                  placeholder="value"
-                  class="rule-input"
-                  style="flex: 1; min-width: 100px"
-                />
-                <button class="remove-btn" onclick={() => removeRule(r.id)}>✕</button>
+            </span>
+          </div>
+          <div class="rule-helper mono">{matchType === 'AND' ? 'A user must match all rules.' : 'A user can match any one rule.'}</div>
+
+          <div class="rules-list">
+            {#if rules.length === 0}
+              <div class="empty-state">
+                <span class="empty-icon">◎</span>
+                <span class="empty-text mono">No rules — this segment matches no users.</span>
               </div>
-            {/each}
-            <button class="btn btn-ghost btn-sm" onclick={addRule} style="margin-top: 10px">+ Add rule</button>
+            {:else}
+              {#each rules as r, i}
+                {#if i > 0}
+                  <div class="rule-connector">
+                    <span class="rule-connector-badge mono">{matchType}</span>
+                    <span class="rule-connector-line"></span>
+                  </div>
+                {/if}
+
+                {#if editing}
+                  <div class="rule-edit-card">
+                    <span class="rule-num mono">{String(i + 1).padStart(2, '0')}</span>
+                    <input
+                      value={r.attribute}
+                      oninput={e => updateRule(r.id, { attribute: (e.target as HTMLInputElement).value.replace(/\s/g, '_') })}
+                      placeholder="attribute"
+                      class="rule-edit-input"
+                    />
+                    <select
+                      value={r.operator}
+                      onchange={e => updateRule(r.id, { operator: (e.target as HTMLSelectElement).value })}
+                      class="rule-edit-select"
+                    >
+                      {#each SEGMENT_OPERATORS as o}
+                        <option value={o.id}>{o.glyph}  {o.label}</option>
+                      {/each}
+                    </select>
+                    <input
+                      value={r.value}
+                      oninput={e => updateRule(r.id, { value: (e.target as HTMLInputElement).value })}
+                      placeholder="value"
+                      class="rule-edit-input rule-edit-input-wide"
+                    />
+                    <button class="rule-remove-btn" onclick={() => removeRule(r.id)} title="Remove">✕</button>
+                  </div>
+                {:else}
+                  <div class="rule-view-card">
+                    <span class="rule-num mono">{String(i + 1).padStart(2, '0')}</span>
+                    <div class="rule-view-body">
+                      <div class="rule-expression">
+                        <span class="rule-attr">{r.attribute}</span>
+                        <span class="rule-op-badge" title={SEG_OP_BY_ID[r.operator]?.label ?? r.operator}>
+                          {SEG_OP_BY_ID[r.operator]?.glyph ?? '='}
+                        </span>
+                        <span class="rule-val">"{r.value}"</span>
+                      </div>
+                      <div class="rule-meta mono">
+                        {SEG_OP_BY_ID[r.operator]?.label ?? r.operator} · {SEG_OP_BY_ID[r.operator]?.kind ?? 'string'}
+                      </div>
+                    </div>
+                  </div>
+                {/if}
+              {/each}
+            {/if}
+
+            {#if editing}
+              <button class="btn btn-ghost btn-sm rule-add-btn" onclick={addRule}>+ Add rule</button>
+            {/if}
           </div>
         </div>
 
-        <div class="panel" style="margin-top: 16px">
+        <div class="panel panel-spacer">
           <div class="panel-bar">
-            <span>Preview</span>
-            <span class="panel-bar-right">~{seg.userCount.toLocaleString()} matched</span>
+            <span>Sample matched users</span>
+            <span class="panel-bar-right">showing {sampleUsers.length} of {mockUserCount.toLocaleString()}</span>
           </div>
-          <div class="panel-body">
-            <div class="preview-bar-row">
-              <div class="preview-track">
-                <div class="preview-fill" style="width: {pct.toFixed(1)}%"></div>
+          <div>
+            {#each sampleUsers as u, i}
+              <div class="sample-row" class:last={i === sampleUsers.length - 1}>
+                <div class="sample-avatar mono">{u.id.slice(5, 7).toUpperCase()}</div>
+                <span class="sample-id mono">{u.id}</span>
+                <span class="sample-attrs">
+                  {#each u.attrs as a}
+                    <span class="sample-attr mono">
+                      <span class="sample-attr-k">{a.k}</span>
+                      <span class="sample-attr-eq"> = </span>
+                      <span class="sample-attr-v">{a.v}</span>
+                    </span>
+                  {/each}
+                </span>
+                <span class="sample-matched mono">✓ matched</span>
               </div>
-              <span class="preview-pct mono">{pct.toFixed(1)}%</span>
-            </div>
-            <div class="preview-sub mono">of total user base (30,000 users)</div>
-
-            <div class="sample-users">
-              <div class="sample-label mono">Sample users</div>
-              {#each ['user_8f3k2', 'user_9x1mq', 'user_3c7pa', 'user_5d2nv'] as u}
-                <div class="sample-row">
-                  <div class="mini-avatar">U</div>
-                  <span class="mono sample-id">{u}</span>
-                  <span class="mono sample-matched">✓ matched</span>
-                </div>
-              {/each}
-            </div>
+            {/each}
           </div>
         </div>
       </div>
 
-      <div>
-        <div class="panel">
-          <div class="panel-bar">
-            <span>Used in flags</span>
-            <span class="panel-bar-right">{usedInFlags.length}</span>
-          </div>
-          {#if usedInFlags.length === 0}
-            <div class="empty mono">Not used in any flags yet</div>
-          {:else}
-            {#each usedInFlags as f}
-              <div class="flag-row">
-                <span class="pill" class:on={f.status === 'on'}>{f.status}</span>
-                <span class="flag-key mono">{f.key}</span>
-              </div>
-            {/each}
-          {/if}
-        </div>
-
-        <div class="panel" style="margin-top: 16px">
-          <div class="panel-bar"><span>Details</span></div>
-          <div class="panel-body">
-            {#each [
-              ['ID',            seg.id],
-              ['Matched users', seg.userCount.toLocaleString()],
-              ['Rules',         seg.rules.length],
-              ['Logic',         logic],
-            ] as [k, v]}
-              <div class="meta-row">
-                <span class="meta-key">{k}</span>
-                <span class="meta-val mono">{v}</span>
-              </div>
-            {/each}
-          </div>
-        </div>
+      <div class="col-right">
+        <SegmentUsedInFlags {flagsUsing} />
+        <SegmentActivity {recentAudit} />
+        <SegmentDetails
+          {detail}
+          {matchType}
+          rulesCount={rules.length}
+          {mockUserCount}
+          {createdAt}
+          {updatedAt}
+        />
+        <SegmentPayload {detail} {desc} {matchType} {rules} />
       </div>
     </div>
   </div>
 </div>
-{:else}
-  <div class="empty mono" style="padding: 64px; color: var(--ink-3)">Segment not found</div>
 {/if}
 
 <style>
   .page-shell {
     flex: 1;
     background: var(--bg);
+    min-height: 100%;
+  }
+
+  .loading-state,
+  .empty {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    font-size: 13px;
+    color: var(--ink-3);
   }
 
   .page-header {
@@ -226,7 +379,7 @@
     color: var(--ink-2);
     font-size: 16px;
     cursor: pointer;
-    transition: border-color .15s, color .15s;
+    transition: border-color 0.15s, color 0.15s;
   }
 
   .back-btn:hover {
@@ -240,11 +393,19 @@
     font-size: clamp(22px, 2vw, 28px);
     letter-spacing: -0.02em;
     line-height: 1.1;
+    display: flex;
+    align-items: center;
+    gap: 4px;
   }
 
   .title-prefix {
     color: var(--ink-3);
     font-weight: 400;
+  }
+
+  .page-icon {
+    display: inline-block;
+    vertical-align: -0.05em;
   }
 
   .actions {
@@ -259,8 +420,20 @@
 
   .two-col {
     display: grid;
-    grid-template-columns: 1.5fr 1fr;
-    gap: 16px;
+    grid-template-columns: minmax(0, 1.6fr) minmax(280px, 1fr);
+    gap: 20px;
+    align-items: start;
+    margin-top: 20px;
+  }
+
+  .col-left, .col-right {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+
+  .col-left {
+    min-width: 0;
   }
 
   .panel {
@@ -268,6 +441,10 @@
     border: 1px solid var(--line);
     border-radius: 10px;
     overflow: hidden;
+  }
+
+  .panel-spacer {
+    margin-top: 0;
   }
 
   .panel-bar {
@@ -282,225 +459,293 @@
 
   .panel-bar-right {
     color: var(--ink-2);
-  }
-
-  .panel-body {
-    padding: 16px;
-  }
-
-  .logic-controls {
     display: flex;
     align-items: center;
     gap: 8px;
   }
 
-  .logic-label {
+  .match-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font: 500 10.5px 'Geist Mono', ui-monospace, monospace;
+    letter-spacing: 0.08em;
+    color: var(--ink-3);
+    text-transform: uppercase;
+  }
+
+  .match-badge-val {
+    color: var(--accent);
+    background: var(--accent-dim);
+    border: 1px solid var(--accent-line);
+    border-radius: 3px;
+    padding: 1px 7px;
+    letter-spacing: 0.1em;
+  }
+
+  .seg-toggle {
+    display: inline-flex;
+    background: var(--bg-2);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 2px;
+    gap: 2px;
+  }
+
+  .seg-toggle-btn {
+    background: transparent;
+    border: 1px solid transparent;
+    color: var(--ink-2);
+    border-radius: 4px;
+    padding: 3px 10px;
+    font: 600 10.5px 'Geist Mono', ui-monospace, monospace;
+    letter-spacing: 0.08em;
+    cursor: pointer;
+    transition: all 0.1s;
+  }
+
+  .seg-toggle-btn.active {
+    background: var(--bg-3);
+    border: 1px solid var(--line-2);
+    color: var(--ink);
+  }
+
+  .rule-helper {
+    padding: 10px 18px;
+    border-bottom: 1px solid var(--line);
+    font-size: 12px;
+    color: var(--ink-3);
+    background: var(--bg);
+  }
+
+  .rules-list {
+    padding: 18px;
+  }
+
+  .empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    padding: 32px 0;
+  }
+
+  .empty-icon {
+    font-size: 20px;
+    color: var(--ink-3);
+  }
+
+  .empty-text {
+    font-size: 12px;
+    color: var(--ink-3);
+  }
+
+  .rule-connector {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 10px 0;
+    padding-left: 38px;
+  }
+
+  .rule-connector-badge {
+    background: var(--bg);
+    color: var(--accent);
+    border: 1px solid var(--accent-line);
+    border-radius: 4px;
+    padding: 2px 10px;
+    font-size: 10.5px;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+  }
+
+  .rule-connector-line {
+    flex: 1;
+    height: 1px;
+    background: var(--line);
+  }
+
+  .rule-view-card {
+    background: var(--bg);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 16px 18px;
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+  }
+
+  .rule-edit-card {
+    background: var(--bg);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 10px 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .rule-num {
+    font-size: 10.5px;
+    font-weight: 500;
+    color: var(--ink-3);
+    width: 24px;
+    flex-shrink: 0;
+    margin-top: 2px;
+  }
+
+  .rule-view-body {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .rule-expression {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 8px;
+    font: 500 16px 'Geist Mono', ui-monospace, monospace;
+    letter-spacing: -0.005em;
+  }
+
+  .rule-attr {
+    color: var(--ink);
+  }
+
+  .rule-op-badge {
+    color: var(--accent);
+    background: var(--accent-dim);
+    border: 1px solid var(--accent-line);
+    border-radius: 4px;
+    padding: 1px 8px;
+    font-size: 14px;
+    font-weight: 600;
+  }
+
+  .rule-val {
+    color: var(--ink);
+  }
+
+  .rule-meta {
+    margin-top: 8px;
     font-size: 11.5px;
     color: var(--ink-3);
   }
 
-  .logic-btn {
-    background: transparent;
-    border: 1px solid var(--line);
-    color: var(--ink-2);
-    border-radius: 4px;
-    padding: 3px 8px;
-    font: 500 11px 'Geist Mono', ui-monospace, monospace;
-    cursor: pointer;
-  }
-
-  .logic-btn.active {
-    background: var(--bg-3);
-    border-color: var(--line-2);
-    color: var(--ink);
-  }
-
-  .logic-sep {
-    text-align: center;
-    font: 500 10.5px 'Geist Mono', ui-monospace, monospace;
-    color: var(--accent);
-    margin: 6px 0;
-    letter-spacing: 0.08em;
-  }
-
-  .rule-editor {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    flex-wrap: wrap;
-    background: var(--bg-3);
-    border-radius: 6px;
-    padding: 8px 10px;
-    border: 1px solid var(--line);
-    margin-bottom: 6px;
-  }
-
-  .rule-input {
-    background: var(--bg-3);
+  .rule-edit-input {
+    background: var(--bg-2);
     border: 1px solid var(--line);
     border-radius: 5px;
     color: var(--ink);
     font: 400 12px 'Geist Mono', ui-monospace, monospace;
-    padding: 6px 10px;
+    padding: 6px 9px;
     outline: none;
+    box-sizing: border-box;
+    flex: 1 1 180px;
+    min-width: 130px;
   }
 
-  .rule-select {
-    background: var(--bg-3);
+  .rule-edit-input-wide {
+    flex: 1 1 200px;
+    min-width: 140px;
+  }
+
+  .rule-edit-select {
+    background: var(--bg-2);
     border: 1px solid var(--line);
     border-radius: 5px;
     color: var(--ink);
     font: 400 12px 'Geist Mono', ui-monospace, monospace;
-    padding: 6px 10px;
+    padding: 6px 9px;
     outline: none;
     cursor: pointer;
+    min-width: 90px;
   }
 
-  .remove-btn {
+  .rule-remove-btn {
     background: transparent;
     border: none;
     color: var(--ink-3);
     cursor: pointer;
     font-size: 14px;
-    padding: 0 4px;
+    padding: 4px 6px;
+    line-height: 1;
   }
 
-  .no-rules {
-    font-size: 12px;
-    color: var(--ink-3);
-    margin-bottom: 12px;
-    margin-top: 0;
-  }
-
-  .preview-bar-row {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    margin-bottom: 16px;
-  }
-
-  .preview-track {
-    flex: 1;
-    background: var(--bg-3);
-    border-radius: 999px;
-    height: 8px;
-    overflow: hidden;
-  }
-
-  .preview-fill {
-    height: 100%;
-    background: var(--accent);
-  }
-
-  .preview-pct {
-    font-size: 13px;
-    min-width: 80px;
-  }
-
-  .preview-sub {
-    font-size: 12px;
-    color: var(--ink-3);
-  }
-
-  .sample-users {
-    margin-top: 20px;
-    border-top: 1px solid var(--line);
-    padding-top: 16px;
-  }
-
-  .sample-label {
-    font-size: 10.5px;
-    color: var(--ink-3);
-    text-transform: uppercase;
-    letter-spacing: 0.1em;
-    margin-bottom: 10px;
+  .rule-add-btn {
+    margin-top: 14px;
   }
 
   .sample-row {
     display: flex;
     align-items: center;
-    gap: 10px;
-    padding: 7px 0;
+    gap: 14px;
+    padding: 12px 18px;
     border-bottom: 1px solid var(--line);
   }
 
-  .mini-avatar {
-    width: 22px;
-    height: 22px;
+  .sample-row.last {
+    border-bottom: none;
+  }
+
+  .sample-avatar {
+    width: 28px;
+    height: 28px;
     border-radius: 50%;
     background: var(--bg-3);
-    border: 1px solid var(--line);
-    display: flex;
+    border: 1px solid var(--line-2);
+    display: inline-flex;
     align-items: center;
     justify-content: center;
-    font-size: 10px;
-    color: var(--ink-3);
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--ink-2);
+    flex-shrink: 0;
   }
 
   .sample-id {
-    font-size: 12px;
+    font-size: 12.5px;
+    font-weight: 500;
+    color: var(--ink);
+    min-width: 110px;
+  }
+
+  .sample-attrs {
+    flex: 1;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    min-width: 0;
+  }
+
+  .sample-attr {
+    font-size: 11px;
+    color: var(--ink-3);
+    background: var(--bg-3);
+    border: 1px solid var(--line);
+    border-radius: 3px;
+    padding: 1px 6px;
+  }
+
+  .sample-attr-k {
+    color: var(--ink-3);
+  }
+
+  .sample-attr-eq {
+    color: var(--ink-2);
+  }
+
+  .sample-attr-v {
     color: var(--ink);
   }
 
   .sample-matched {
-    font-size: 12px;
-    color: var(--accent);
-    margin-left: auto;
-  }
-
-  .flag-row {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 9px 14px;
-    border-bottom: 1px solid var(--line);
-    font-size: 12.5px;
-  }
-
-  .flag-key {
-    font-size: 12px;
-    color: var(--ink);
-  }
-
-  .meta-row {
-    display: flex;
-    justify-content: space-between;
-    margin-bottom: 12px;
-    font-size: 13px;
-  }
-
-  .meta-key {
-    color: var(--ink-3);
-  }
-
-  .meta-val {
-    font-size: 12px;
+    font-size: 10.5px;
     font-weight: 500;
-    color: var(--ink);
-  }
-
-  .empty {
-    font: 400 13px 'Geist Mono', ui-monospace, monospace;
-    color: var(--ink-3);
-    text-align: center;
-    padding: 48px 24px;
-  }
-
-  .pill {
-    font: 500 10.5px 'Geist Mono', ui-monospace, monospace;
-    padding: 2px 7px;
-    border-radius: 4px;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-    background: var(--bg-3);
-    border: 1px solid var(--line);
-    color: var(--ink-3);
-  }
-
-  .pill.on {
     color: var(--accent);
-    border-color: var(--accent-line);
-    background: var(--accent-dim);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    flex-shrink: 0;
   }
 
   .btn {
@@ -512,7 +757,7 @@
     font: 500 13.5px 'Geist', ui-sans-serif;
     border: 1px solid transparent;
     cursor: pointer;
-    transition: opacity .15s;
+    transition: opacity 0.15s;
   }
 
   .btn-sm {
