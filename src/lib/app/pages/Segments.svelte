@@ -1,5 +1,7 @@
 <script lang="ts">
-  import { projects, segments } from '../data'
+  import { orgStore } from '../../org.svelte'
+  import { projectStore } from '../../project.svelte'
+  import { listSegments, type SegmentDTO } from '../../api/flags'
 
   let { activeProject, projectName, nav, onSelectSegment }: {
     activeProject: string
@@ -7,9 +9,22 @@
     nav: (p: string) => void
     onSelectSegment: (id: string) => void
   } = $props()
-  const projSegments = $derived(segments.filter(s => s.projectId === activeProject))
+
+  const orgId = $derived(orgStore.activeId)
+  const projId = $derived(projectStore.projects.find(p => String(p.id) === activeProject)?.id ?? 0)
+
+  let segs = $state<SegmentDTO[]>([])
   let search = $state('')
-  const filtered = $derived(projSegments.filter(s => s.name.includes(search.toLowerCase())))
+
+  $effect(() => {
+    if (orgId && projId) {
+      listSegments(orgId, projId).then(r => {
+        if (r.ok) segs = r.data
+      })
+    }
+  })
+
+  const filtered = $derived(segs.filter(s => s.name.toLowerCase().includes(search.toLowerCase())))
 </script>
 
 <div class="page-shell">
@@ -19,7 +34,7 @@
       <h1><span class="page-icon">◎</span> segments</h1>
     </div>
     <div class="actions">
-      <button class="btn btn-primary">+ New segment</button>
+      <button class="btn btn-primary" onclick={() => nav('segmentnew')}>+ New segment</button>
     </div>
   </header>
 
@@ -33,12 +48,11 @@
         <div class="empty mono">No segments found</div>
       {/if}
       {#each filtered as s, i}
-        <button class="seg-row" class:last={i === filtered.length - 1} onclick={() => onSelectSegment(s.id)}>
+        <button class="seg-row" class:last={i === filtered.length - 1} onclick={() => onSelectSegment(String(s.id))}>
           <div class="dot"></div>
           <span class="seg-name mono">{s.name}</span>
-          <span class="seg-desc">{s.desc}</span>
-          <span class="user-count mono">{s.userCount.toLocaleString()} users</span>
-          <span class="rule-count mono">{s.rules.length} rule{s.rules.length !== 1 ? 's' : ''}</span>
+          <span class="seg-desc">{s.description}</span>
+          <span class="rule-count mono">{s.ruleCount} rule{s.ruleCount !== 1 ? 's' : ''}</span>
         </button>
       {/each}
     </div>
@@ -164,13 +178,6 @@
     font-size: 12.5px;
     color: var(--ink-3);
     flex: 1;
-  }
-
-  .user-count {
-    font-size: 12px;
-    color: var(--ink-2);
-    min-width: 90px;
-    text-align: right;
   }
 
   .rule-count {

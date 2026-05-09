@@ -184,10 +184,11 @@
               userCount: o.userCount,
               value: String(o.value),
               enabled: o.enabled,
+              priority: o.priority,
             })),
           }}
           env={env}
-          segments={segments.map(s => ({ id: String(s.id), name: s.name, userCount: s.userCount }))}
+          segments={segments.map(s => ({ id: String(s.id), name: s.name }))}
           orgId={orgId}
           projectId={projId}
           flagId={flag.id}

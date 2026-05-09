@@ -28,9 +28,9 @@ export interface SegmentOverrideDTO {
   id:        number
   segmentId: number
   name:      string
-  userCount: number
   value:     boolean | string | number
   enabled:   boolean
+  priority:  number
 }
 
 export interface SegmentDTO {
@@ -38,7 +38,8 @@ export interface SegmentDTO {
   projectId:   number
   name:        string
   description: string
-  userCount:   number
+  matchType:   string
+  ruleCount:   number
   rules?:      SegmentRuleDTO[]
 }
 
@@ -60,6 +61,46 @@ export interface FlagEnvironmentConfigDTO {
   defaultValue:     boolean | string | number
   servedValue:      boolean | string | number
 }
+
+export interface SegmentOperatorMeta {
+  id: string
+  label: string
+  glyph: string
+  group: string
+  kind: 'text' | 'number' | 'list'
+}
+
+export const SEGMENT_OPERATORS: SegmentOperatorMeta[] = [
+  { id: 'equals',      label: 'equals',                glyph: '=',  group: 'Equality',   kind: 'text' },
+  { id: 'not_equals',  label: 'not equals',            glyph: '≠',  group: 'Equality',   kind: 'text' },
+  { id: 'contains',    label: 'contains',              glyph: '⊃',  group: 'Text match', kind: 'text' },
+  { id: 'starts_with', label: 'starts with',           glyph: '⇤',  group: 'Text match', kind: 'text' },
+  { id: 'ends_with',   label: 'ends with',             glyph: '⇥',  group: 'Text match', kind: 'text' },
+  { id: 'gt',          label: 'greater than',          glyph: '>',  group: 'Comparison', kind: 'number' },
+  { id: 'gte',         label: 'greater than or equal', glyph: '≥',  group: 'Comparison', kind: 'number' },
+  { id: 'lt',          label: 'less than',             glyph: '<',  group: 'Comparison', kind: 'number' },
+  { id: 'lte',         label: 'less than or equal',    glyph: '≤',  group: 'Comparison', kind: 'number' },
+  { id: 'in',          label: 'in list',               glyph: '∈',  group: 'List',       kind: 'list' },
+  { id: 'not_in',      label: 'not in list',           glyph: '∉',  group: 'List',       kind: 'list' },
+]
+
+export const SEG_OP_BY_ID: Record<string, SegmentOperatorMeta> = Object.fromEntries(
+  SEGMENT_OPERATORS.map(o => [o.id, o])
+)
+
+export const SEG_OP_GROUPS = ['Equality', 'Text match', 'Comparison', 'List']
+
+export const COMMON_ATTRS = [
+  { name: 'plan',             example: 'pro · enterprise · free' },
+  { name: 'country',          example: 'US · GB · DE' },
+  { name: 'region',           example: 'us-east-1 · eu-west-2' },
+  { name: 'platform',         example: 'ios · android · web' },
+  { name: 'email',            example: '@acme.co' },
+  { name: 'beta_opt_in',      example: 'true · false' },
+  { name: 'account_age_days', example: '0–365' },
+  { name: 'api_calls_daily',  example: 'numeric' },
+  { name: 'app_version',      example: '2.4.1' },
+]
 
 export function listFlags(orgId: number, projectId: number): Promise<ApiResult<FlagDTO[]>> {
   return api.get(`/organizations/${orgId}/projects/${projectId}/flags`)
@@ -103,7 +144,7 @@ export function updateFlagConfig(orgId: number, projectId: number, flagId: numbe
   rolloutPercentage?: number
   defaultValue?: unknown
   servedValue?: unknown
-  overrides?: { segmentId: number; value: unknown; enabled: boolean }[]
+  overrides?: { segmentId: number; value: unknown; enabled: boolean; priority: number }[]
 }): Promise<ApiResult<string>> {
   return api.patch(`/organizations/${orgId}/projects/${projectId}/flags/${flagId}/config?env=${encodeURIComponent(env)}`, payload)
 }
@@ -112,13 +153,24 @@ export function listSegments(orgId: number, projectId: number): Promise<ApiResul
   return api.get(`/organizations/${orgId}/projects/${projectId}/segments`)
 }
 
-export function addSegmentOverride(orgId: number, projectId: number, flagId: number, env: string, payload: {
-  segmentId: number
-  value: unknown
-}): Promise<ApiResult<{ segmentId: number; value: unknown }>> {
-  return api.post(`/organizations/${orgId}/projects/${projectId}/flags/${flagId}/config?env=${encodeURIComponent(env)}`, { overrides: [payload] })
+export function createSegment(orgId: number, projectId: number, payload: {
+  name: string
+  description?: string
+  matchType?: string
+  rules?: { attribute: string; operator: string; value: string }[]
+}): Promise<ApiResult<SegmentDTO>> {
+  return api.post(`/organizations/${orgId}/projects/${projectId}/segments`, payload)
 }
 
-export function removeSegmentOverride(orgId: number, projectId: number, flagId: number, env: string, segmentId: number): Promise<ApiResult<null>> {
-  return api.delete(`/organizations/${orgId}/projects/${projectId}/flags/${flagId}/config?env=${encodeURIComponent(env)}`)
+export function updateSegment(orgId: number, projectId: number, segmentId: number, payload: {
+  name?: string
+  description?: string
+  matchType?: string
+  rules?: { attribute: string; operator: string; value: string }[]
+}): Promise<ApiResult<SegmentDTO>> {
+  return api.patch(`/organizations/${orgId}/projects/${projectId}/segments/${segmentId}`, payload)
+}
+
+export function deleteSegment(orgId: number, projectId: number, segmentId: number): Promise<ApiResult<null>> {
+  return api.delete(`/organizations/${orgId}/projects/${projectId}/segments/${segmentId}`)
 }

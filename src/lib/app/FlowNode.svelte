@@ -33,7 +33,7 @@
     border-radius: 8px;
     padding: 11px 13px;
     opacity: 1;
-    transition: opacity 0.2s;
+    transition: background 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease, opacity 0.2s;
   }
 
   .node.dim {
@@ -43,11 +43,13 @@
   .node.accent {
     background: var(--accent-dim);
     border-color: var(--accent-line);
+    box-shadow: 0 0 16px 2px rgba(229, 90, 1, 0.12), 0 0 4px rgba(229, 90, 1, 0.08);
   }
 
   .node.seg {
     background: var(--seg-dim);
     border-color: var(--seg-line);
+    box-shadow: 0 0 14px 2px rgba(184, 125, 232, 0.10), 0 0 4px rgba(184, 125, 232, 0.06);
   }
 
   .node-header {
@@ -60,6 +62,7 @@
   .node-icon {
     font-size: 10px;
     color: var(--ink-3);
+    transition: color 0.25s ease;
   }
 
   .node.accent .node-icon {
@@ -75,6 +78,7 @@
     color: var(--ink-2);
     text-transform: uppercase;
     letter-spacing: 0.08em;
+    transition: color 0.25s ease;
   }
 
   .node.accent .node-title {

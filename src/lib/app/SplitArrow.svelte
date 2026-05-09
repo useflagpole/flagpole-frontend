@@ -14,7 +14,7 @@
   <div class="arrow-row">
     {#if topLabel}<span class="arrow-label active">{topLabel}</span>{/if}
     <svg width="52" height="14" viewBox="0 0 52 14">
-      <line x1="2" y1="7" x2="43" y2="7" stroke="var(--accent)" stroke-width="1.5" />
+      <line x1="2" y1="7" x2="43" y2="7" stroke="var(--accent)" stroke-width="1.5" style="transition: stroke 0.25s ease" />
       <polyline
         points="39,3 47,7 39,11"
         fill="none"
@@ -22,13 +22,14 @@
         stroke-width="1.5"
         stroke-linejoin="round"
         stroke-linecap="round"
+        style="transition: stroke 0.25s ease"
       />
     </svg>
   </div>
   <div class="arrow-row">
     {#if bottomLabel}<span class="arrow-label">{bottomLabel}</span>{/if}
     <svg width="52" height="14" viewBox="0 0 52 14">
-      <line x1="2" y1="7" x2="43" y2="7" stroke="var(--line-2)" stroke-width="1.5" stroke-dasharray="4 3" />
+      <line x1="2" y1="7" x2="43" y2="7" stroke="var(--line-2)" stroke-width="1.5" stroke-dasharray="4 3" style="transition: stroke 0.25s ease" />
       <polyline
         points="39,3 47,7 39,11"
         fill="none"
@@ -36,6 +37,7 @@
         stroke-width="1.5"
         stroke-linejoin="round"
         stroke-linecap="round"
+        style="transition: stroke 0.25s ease"
       />
     </svg>
   </div>
@@ -62,6 +64,7 @@
     font: 400 9.5px 'Geist Mono', ui-monospace, monospace;
     color: var(--ink-3);
     white-space: nowrap;
+    transition: color 0.25s ease;
   }
 
   .arrow-label.active {

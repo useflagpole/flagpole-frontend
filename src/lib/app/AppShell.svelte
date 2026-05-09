@@ -10,6 +10,7 @@
   import Flags         from './pages/Flags.svelte'
   import FlagDetail    from './pages/FlagDetail.svelte'
   import Segments      from './pages/Segments.svelte'
+  import NewSegment    from './pages/NewSegment.svelte'
   import SegmentDetail from './pages/SegmentDetail.svelte'
   import AuditLog      from './pages/AuditLog.svelte'
   import Settings      from './pages/Settings.svelte'
@@ -202,6 +203,12 @@
         projectName={activeProjectName}
         {nav}
         onSelectSegment={id => { activeSegment = id; nav('segmentdetail') }}
+      />
+    {:else if page === 'segmentnew'}
+      <NewSegment
+        activeProject={String(activeProject ?? '')}
+        projectName={activeProjectName}
+        {nav}
       />
     {:else if page === 'segmentdetail'}
       <SegmentDetail activeProject={String(activeProject ?? '')} projectName={activeProjectName} {activeSegment} {nav} />
