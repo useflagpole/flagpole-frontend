@@ -1,11 +1,14 @@
 <script lang="ts">
   import { orgStore } from '../../org.svelte'
   import { projectStore } from '../../project.svelte'
-  import { listSegments, createSegment, COMMON_ATTRS, SEG_OP_BY_ID, type SegmentDTO } from '../../api/flags'
+  import { listSegments, createSegment, SEG_OP_BY_ID } from '../../api/flags'
   import { notify } from '../../toasts.svelte'
   import SegmentRuleRow from '../SegmentRuleRow.svelte'
   import SegmentConnector from '../SegmentConnector.svelte'
-  import SegmentChipInput from '../SegmentChipInput.svelte'
+  import SegmentIdentityPanel from '../SegmentIdentityPanel.svelte'
+  import SegmentChecklist from '../SegmentChecklist.svelte'
+  import SegmentAttrSuggestions from '../SegmentAttrSuggestions.svelte'
+  import SegmentPayloadPreview from '../SegmentPayloadPreview.svelte'
 
   let {
     nav,
@@ -20,8 +23,6 @@
   const orgId = $derived(orgStore.activeId)
   const projId = $derived(projectStore.projects.find(p => String(p.id) === activeProject)?.id ?? 0)
 
-  const MAX_NAME = 64
-  const MAX_DESC = 256
   const MAX_RULES = 20
 
   let name = $state('')
@@ -32,7 +33,6 @@
   let saving = $state(false)
   let existingNames = $state<Set<string>>(new Set())
   let nameRef: HTMLInputElement | undefined = $state()
-  let payloadOpen = $state(false)
 
   $effect(() => {
     if (orgId && projId) {
@@ -44,10 +44,6 @@
       setTimeout(() => nameRef?.focus(), 80)
     }
   })
-
-  function sanitizeSegName(v: string): string {
-    return v.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9\-_.]/g, '').slice(0, MAX_NAME)
-  }
 
   function addRule(preset?: { attribute?: string; operator?: string; value?: string }) {
     if (rules.length >= MAX_RULES) return
@@ -173,49 +169,15 @@
 
   <div class="page-grid">
     <div class="builder-col">
-      <div class="panel">
-        <div class="panel-bar">
-          <span>01 — Identity</span>
-          <span class="panel-bar-right">required</span>
-        </div>
-        <div class="panel-body">
-          <div class="field">
-            <div class="field-header">
-              <label class="field-label">Segment name</label>
-              <span class="field-counter">{name.length}/{MAX_NAME}</span>
-            </div>
-            <input
-              bind:this={nameRef}
-              value={name}
-              oninput={(e) => name = sanitizeSegName((e.target as HTMLInputElement).value)}
-              placeholder="e.g. eu-pro-customers"
-              class="field-input"
-              class:field-error={(trimmed && isDuplicate) || (submitAttempted && !trimmed)}
-            />
-            {#if trimmed && isDuplicate}
-              <div class="field-error-msg">"{trimmed}" already exists in this project.</div>
-            {:else if submitAttempted && !trimmed}
-              <div class="field-error-msg">Segment name is required.</div>
-            {:else}
-              <div class="field-hint">lowercase · hyphens · dots — auto-formatted · unique in project</div>
-            {/if}
-          </div>
-
-          <div class="field">
-            <div class="field-header">
-              <label class="field-label">Description <span class="field-label-opt">(optional)</span></label>
-              <span class="field-counter">{desc.length}/{MAX_DESC}</span>
-            </div>
-            <textarea
-              value={desc}
-              oninput={(e) => desc = (e.target as HTMLTextAreaElement).value.slice(0, MAX_DESC)}
-              rows={2}
-              placeholder="What population does this segment describe?"
-              class="field-input field-textarea"
-            />
-          </div>
-        </div>
-      </div>
+      <SegmentIdentityPanel
+        {name}
+        {desc}
+        {trimmed}
+        {isDuplicate}
+        {submitAttempted}
+        onNameChange={(v) => name = v}
+        onDescChange={(v) => desc = v}
+      />
 
       <div class="panel">
         <div class="panel-bar">
@@ -295,57 +257,11 @@
         </div>
       </div>
 
-      <div class="panel">
-        <div class="panel-bar">
-          <span>Common attributes</span>
-          <span class="panel-bar-right">click to add</span>
-        </div>
-        <div class="suggestions-body">
-          {#each COMMON_ATTRS as a}
-            <button class="suggestion-chip" onclick={() => addRule({ attribute: a.name })} title={a.example}>
-              {a.name}
-            </button>
-          {/each}
-        </div>
-      </div>
+      <SegmentAttrSuggestions onAdd={addRule} />
 
-      <div class="panel">
-        <div class="panel-bar">
-          <span>Checklist</span>
-          <span class="panel-bar-right">{issues.length > 0 ? `${issues.length} to fix` : 'all set'}</span>
-        </div>
-        <div class="checklist-body">
-          <div class="checklist-item">
-            <span class="check-box" class:check-ok={trimmed && !isDuplicate}>
-              {#if trimmed && !isDuplicate}✓{/if}
-            </span>
-            <span class="check-msg">{trimmed && !isDuplicate ? `Name "${trimmed}" is valid` : 'Name required & unique'}</span>
-          </div>
-          <div class="checklist-item">
-            <span class="check-box" class:check-ok={!issues.some(i => i.key.startsWith('rule:'))}>
-              {#if !issues.some(i => i.key.startsWith('rule:'))}✓{/if}
-            </span>
-            <span class="check-msg">All rules complete</span>
-          </div>
-          {#if issues.length > 0}
-            <div class="checklist-issues">
-              {#each issues as i}
-                <div class="checklist-issue" class:issue-error={i.level === 'error'}>· {i.msg}</div>
-              {/each}
-            </div>
-          {/if}
-        </div>
-      </div>
+      <SegmentChecklist {trimmed} {isDuplicate} {issues} />
 
-      <div class="panel">
-        <div class="payload-header" onclick={() => payloadOpen = !payloadOpen}>
-          <span>API request</span>
-          <span>{payloadOpen ? '▾' : '▸'} POST</span>
-        </div>
-        {#if payloadOpen}
-          <pre class="payload-body">{JSON.stringify(payload, null, 2)}</pre>
-        {/if}
-      </div>
+      <SegmentPayloadPreview {payload} />
     </div>
   </div>
 </div>
@@ -437,79 +353,6 @@
 
   .panel-body {
     padding: 18px;
-  }
-
-  .field {
-    margin-bottom: 18px;
-  }
-
-  .field:last-child {
-    margin-bottom: 0;
-  }
-
-  .field-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: baseline;
-    margin-bottom: 8px;
-  }
-
-  .field-label {
-    font: 500 11px 'Geist Mono', ui-monospace, monospace;
-    color: var(--ink-2);
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-  }
-
-  .field-label-opt {
-    color: var(--ink-3);
-    font-weight: 400;
-  }
-
-  .field-counter {
-    font: 400 10.5px 'Geist Mono', ui-monospace, monospace;
-    color: var(--ink-3);
-  }
-
-  .field-input {
-    width: 100%;
-    background: var(--bg);
-    border: 1px solid var(--line);
-    border-radius: 6px;
-    padding: 9px 12px;
-    color: var(--ink);
-    font: 400 13px 'Geist Mono', ui-monospace, monospace;
-    outline: none;
-    box-sizing: border-box;
-    transition: border-color 0.15s;
-  }
-
-  .field-input:focus {
-    border-color: var(--line-2);
-  }
-
-  .field-input.field-error {
-    border-color: #7a3333;
-  }
-
-  .field-textarea {
-    resize: vertical;
-    min-height: 56px;
-    font-family: 'Geist', ui-sans-serif;
-    font-size: 13px;
-    line-height: 1.5;
-  }
-
-  .field-hint {
-    font: 400 11px 'Geist Mono', ui-monospace, monospace;
-    color: var(--ink-3);
-    margin-top: 6px;
-  }
-
-  .field-error-msg {
-    font: 400 11.5px 'Geist Mono', ui-monospace, monospace;
-    color: #c07070;
-    margin-top: 6px;
   }
 
   .match-bar {
@@ -648,112 +491,6 @@
   .reach-caption {
     font: 400 11px 'Geist Mono', ui-monospace, monospace;
     color: var(--ink-3);
-  }
-
-  .suggestions-body {
-    padding: 12px;
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px;
-  }
-
-  .suggestion-chip {
-    background: var(--bg-3);
-    border: 1px solid var(--line);
-    color: var(--ink-2);
-    border-radius: 4px;
-    padding: 4px 8px;
-    font: 500 11.5px 'Geist Mono', ui-monospace, monospace;
-    cursor: pointer;
-    transition: all 0.12s;
-  }
-
-  .suggestion-chip:hover {
-    border-color: var(--accent-line);
-    color: var(--accent);
-  }
-
-  .checklist-body {
-    padding: 12px 14px;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-  }
-
-  .checklist-item {
-    display: flex;
-    align-items: flex-start;
-    gap: 8px;
-    font-size: 12.5px;
-  }
-
-  .check-box {
-    width: 14px;
-    height: 14px;
-    margin-top: 1px;
-    flex-shrink: 0;
-    border-radius: 3px;
-    background: var(--bg-3);
-    border: 1px solid var(--line);
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 9px;
-    color: var(--ink-3);
-    line-height: 1;
-  }
-
-  .check-box.check-ok {
-    background: var(--accent-dim);
-    border-color: var(--accent-line);
-    color: var(--accent);
-  }
-
-  .check-msg {
-    color: var(--ink-2);
-  }
-
-  .checklist-issues {
-    margin-top: 6px;
-    padding-top: 10px;
-    border-top: 1px solid var(--line);
-    display: flex;
-    flex-direction: column;
-    gap: 5px;
-  }
-
-  .checklist-issue {
-    font: 400 11.5px 'Geist Mono', ui-monospace, monospace;
-    color: var(--ink-3);
-    line-height: 1.45;
-  }
-
-  .checklist-issue.issue-error {
-    color: #c07070;
-  }
-
-  .payload-header {
-    padding: 10px 14px;
-    border-bottom: 1px solid var(--line);
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    cursor: pointer;
-    font: 500 11.5px 'Geist Mono', ui-monospace, monospace;
-    color: var(--ink-3);
-    user-select: none;
-  }
-
-  .payload-body {
-    margin: 0;
-    padding: 12px 14px;
-    font: 400 11px 'Geist Mono', ui-monospace, monospace;
-    color: var(--ink-2);
-    background: var(--bg);
-    line-height: 1.5;
-    white-space: pre;
-    overflow-x: auto;
-    max-height: 260px;
   }
 
   .btn {
