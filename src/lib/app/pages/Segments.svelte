@@ -52,7 +52,7 @@
           <div class="dot"></div>
           <span class="seg-name mono">{s.name}</span>
           <span class="seg-desc">{s.description}</span>
-          <span class="rule-count mono">{s.ruleCount} rule{s.ruleCount !== 1 ? 's' : ''}</span>
+          <span class="rule-count mono">{(s.rules?.length ?? 0)} rule{(s.rules?.length ?? 0) !== 1 ? 's' : ''}</span>
         </button>
       {/each}
     </div>

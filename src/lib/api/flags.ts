@@ -174,3 +174,37 @@ export function updateSegment(orgId: number, projectId: number, segmentId: numbe
 export function deleteSegment(orgId: number, projectId: number, segmentId: number): Promise<ApiResult<null>> {
   return api.delete(`/organizations/${orgId}/projects/${projectId}/segments/${segmentId}`)
 }
+
+export interface FlagRefDTO {
+  id:     number
+  key:    string
+  status: string
+}
+
+export interface AuditEntryDTO {
+  id:        number
+  createdAt: string
+  actor:     string
+  action:    string
+  target:    string
+  detail:    string
+  env:       string
+}
+
+export interface SegmentDetailDTO {
+  id:          number
+  projectId:   number
+  name:        string
+  description: string
+  matchType:   string
+  ruleCount:   number
+  rules:       SegmentRuleDTO[]
+  createdAt:   string
+  updatedAt:   string
+  flagsUsing:  FlagRefDTO[]
+  recentAudit: AuditEntryDTO[]
+}
+
+export function getSegmentDetail(orgId: number, projectId: number, segmentId: number): Promise<ApiResult<SegmentDetailDTO>> {
+  return api.get(`/organizations/${orgId}/projects/${projectId}/segments/${segmentId}`)
+}
