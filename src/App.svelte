@@ -4,6 +4,7 @@
   import Milestone from './lib/Milestone.svelte';
   import Summit from './lib/Summit.svelte';
   import Footer from './lib/Footer.svelte';
+  import HeroScene from './lib/HeroScene.svelte';
 </script>
 
 <Nav />
@@ -11,14 +12,7 @@
 <main>
   <!-- HERO -->
   <section class="section hero-section">
-    <video
-      class="hero-bg-video"
-      src="/heroascii.mp4"
-      autoplay
-      loop
-      muted
-      playsinline
-    ></video>
+    <HeroScene />
     <div class="page">
       <span class="eyebrow">plant your first flag</span>
       <h1>Flag it. Ramp it.<br>Roll it back instantly.</h1>
@@ -101,19 +95,6 @@
     z-index: 1;
   }
 
-  .hero-bg-video {
-    position: absolute;
-    top: 0;
-    right: 0;
-    height: 100%;
-    width: 50%;
-    object-fit: cover;
-    object-position: left center;
-    opacity: 0.5;
-    pointer-events: none;
-    mask-image: linear-gradient(to right, transparent 0%, black 30%);
-    -webkit-mask-image: linear-gradient(to right, transparent 0%, black 30%);
-  }
 
   h1 {
     font-size: clamp(44px, 6.4vw, 88px);
