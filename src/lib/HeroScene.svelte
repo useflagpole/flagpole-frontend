@@ -251,7 +251,7 @@
 
     function animate() {
       animId = requestAnimationFrame(animate);
-      t += 0.004;
+      t += 0.002;
       earth.rotation.y = t;
       sharedHaloMat.uniforms.uTime.value = t;
       for (const { mat } of arcObjects) {

@@ -1,6 +1,7 @@
 <script lang="ts">
   import Nav from './lib/Nav.svelte';
   import CodeMock from './lib/CodeMock.svelte';
+  import DeployCompare from './lib/DeployCompare.svelte';
   import Milestone from './lib/Milestone.svelte';
   import Summit from './lib/Summit.svelte';
   import Footer from './lib/Footer.svelte';
@@ -24,6 +25,9 @@
       </div>
     </div>
   </section>
+
+  <!-- DEPLOY COMPARE -->
+  <DeployCompare />
 
   <!-- STEP 01 -->
   <section class="section">
