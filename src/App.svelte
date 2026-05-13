@@ -18,7 +18,7 @@
       <h1>Flag it. Ramp it.<br>Roll it back instantly.</h1>
       <p class="hero-sub">flagpole is the feature flag service we wished existed when we were three engineers and a staging server. Open source, free forever for small teams, and fast enough to call on the hot path.</p>
       <div class="hero-ctas">
-        <a class="btn btn-accent" href="#/signup">Plant your first flag</a>
+        <a class="btn btn-accent node" href="#/signup">Plant your first flag</a>
         <a class="btn btn-ghost" href="#"><span class="mono">★ 12.4k</span></a>
         <a class="btn btn-ghost" href="#">docs →</a>
       </div>
@@ -127,5 +127,11 @@
     color: var(--ink-3);
     font-size: 13px;
     margin-top: 32px;
+  }
+
+  .btn-accent.node {
+    background: var(--accent-dim);
+    border-color: var(--accent);
+    box-shadow: 0 0 20px 3px rgba(229, 90, 1, 0.18), 0 0 6px rgba(229, 90, 1, 0.12);
   }
 </style>
