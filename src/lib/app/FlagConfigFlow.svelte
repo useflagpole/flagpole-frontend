@@ -4,7 +4,7 @@
   import FlowArrow from './FlowArrow.svelte'
   import SplitArrow from './SplitArrow.svelte'
   import UndefinedNode from './UndefinedNode.svelte'
-  import BoolEditor from './BoolEditor.svelte'
+  import ValueEditor from './ValueEditor.svelte'
   import { notify } from '../toasts.svelte'
   import { updateFlagConfig } from '../api/flags'
 
@@ -220,7 +220,7 @@
                   <span class="seg-dot">·</span>
                   <span>bypasses rollout</span>
                 </div>
-                <BoolEditor value={s.value} onchange={v => updateSegmentValue(s.id, v)} />
+                <ValueEditor flagType={ftype} value={s.value} onchange={v => updateSegmentValue(s.id, v)} />
               </FlowNode>
               <button class="seg-remove-btn" onclick={() => removeSegment(s.id)} title="Remove override">×</button>
             </div>
@@ -268,7 +268,7 @@
         <!-- ④ Outcome nodes -->
         <div class="outcomes-col">
           <FlowNode title="Served value" icon="→" accent style="min-width: 152px;">
-            <BoolEditor value={servedValue} onchange={v => { servedValue = v; markDirty() }} />
+            <ValueEditor flagType={ftype} value={servedValue} onchange={v => { servedValue = v; markDirty() }} />
             <div class="outcome-sub mono" style="color: var(--accent-line)">
               {rolloutEnabled ? `${rollout}% of users` : 'all users'}
             </div>
@@ -276,7 +276,7 @@
 
           {#if rolloutEnabled}
             <FlowNode title="Default value" icon="⊘" style="min-width: 152px;">
-              <BoolEditor value={defaultValue} onchange={v => { defaultValue = v; markDirty() }} />
+              <ValueEditor flagType={ftype} value={defaultValue} onchange={v => { defaultValue = v; markDirty() }} />
               <div class="outcome-sub mono">{100 - rollout}% of users</div>
             </FlowNode>
           {/if}
