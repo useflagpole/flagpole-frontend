@@ -2,7 +2,7 @@
   <div class="page">
     <div class="sec-head">
       <h2>Run it yourself, or let us. Same software either way.</h2>
-      <p>Flagpole is open source. <span class="mono" style="color:var(--accent)">Flagpole Edge</span> is the same service, hosted globally and managed by us. You can move between them whenever.</p>
+      <p>flagpole is open source. <span class="mono" style="color:var(--accent)">flagpole edge</span> is the same service, hosted globally and managed by us. Our offering is reliability and hassle-free.</p>
     </div>
     <div class="deploy">
       <div class="deploy-card">
@@ -12,11 +12,10 @@
           <span class="deploy-badge">open source</span>
         </div>
         <h3>Run it on your hardware.</h3>
-        <p>Build your own flagpole, pick and choose the components you need. You own your data.</p>
+        <p>We provide an ecosystem, pick and choose the components you need. You own your data.</p>
         <ul class="deploy-list">
+          <li><span class="deploy-tick">✓</span> Start with one docker image and scale as you grow</li>
           <li><span class="deploy-tick">✓</span> Your servers, your data, your region</li>
-          <li><span class="deploy-tick">✓</span> Helm chart &amp; Docker image included</li>
-          <li><span class="deploy-tick dim">○</span> You handle scaling &amp; uptime</li>
           <li><span class="deploy-tick dim">○</span> Edge cache is bring-your-own</li>
         </ul>
         <div class="deploy-price mono">$0 · forever</div>

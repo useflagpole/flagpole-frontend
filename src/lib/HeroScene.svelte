@@ -5,7 +5,7 @@
   let container: HTMLDivElement;
 
   const FLAG_COLORS = [0xE55A01, 0xE07030, 0xCC5001, 0xF06020];
-  const POLE_COLOR = 0xededef;
+  const POLE_COLOR = 0xe0e0e0;
 
   function latLongToVec3(lat: number, lon: number, radius: number): THREE.Vector3 {
     const phi = (90 - lat) * (Math.PI / 180);
@@ -113,9 +113,9 @@
       const poleGeo = new THREE.CylinderGeometry(poleRadius, poleRadius * 0.7, poleHeight, 8);
       const poleMat = new THREE.MeshPhongMaterial({
         color: POLE_COLOR,
-        flatShading: true,
-        specular: 0xaaaaaa,
-        shininess: 80,
+        flatShading: false,
+        specular: 0x888888,
+        shininess: 0,
       });
       const poleMesh = new THREE.Mesh(poleGeo, poleMat);
 
@@ -199,7 +199,6 @@
       const arcPts = greatCircleArc(flagDefs[i].lat, flagDefs[i].lon, flagDefs[j].lat, flagDefs[j].lon, midR, 32);
       const curve = new THREE.CatmullRomCurve3(arcPts, false, 'catmullrom', 0.3);
       const tubeGeo = new THREE.TubeGeometry(curve, 15, 0.004, 6, false);
-      const tubeHaloGeo = new THREE.TubeGeometry(curve, 15, 0.018, 6, false);
 
       const mat = new THREE.ShaderMaterial({
         vertexShader: arcVert,

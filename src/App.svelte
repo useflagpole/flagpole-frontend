@@ -17,7 +17,9 @@
     <div class="page">
       <span class="eyebrow">plant your first flag</span>
       <h1>Flag it. Ramp it.<br>Roll it back instantly.</h1>
-      <p class="hero-sub">flagpole is the feature flag service we wished existed when we were three engineers and a staging server. Open source, free forever for small teams, and fast enough to call on the hot path.</p>
+      <p class="hero-sub">
+        flagpole is the feature flag service we wished existed when we were three engineers and a staging server. We designed an open source ecosystem to make it easy to use, scale and deploy.
+      </p>
       <div class="hero-ctas">
         <a class="btn btn-accent node" href="#/signup">Plant your first flag</a>
         <a class="btn btn-ghost" href="#"><span class="mono">★ 12.4k</span></a>
