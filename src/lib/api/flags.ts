@@ -9,6 +9,7 @@ export interface FlagDTO {
   type:        'bool' | 'string' | 'number'
   createdAt:   string
   updatedAt:   string
+  envCount:    number
 }
 
 export interface FlagDetailDTO {
