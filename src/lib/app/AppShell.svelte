@@ -41,7 +41,6 @@
   })
 
   $effect(() => {
-    // when project changes, reset detail selections to first item of new project
     activeProject
     activeFlag    = null
     activeSegment = 's1'

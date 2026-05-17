@@ -27,7 +27,7 @@
       key: string
       type: 'bool' | 'string' | 'number'
       desc: string
-      status: 'on' | 'off'
+      status: 'on' | 'off' | ''
       rollout: number
       rolloutEnabled: boolean
       defaultValue: string

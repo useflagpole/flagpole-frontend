@@ -28,7 +28,7 @@
   const filtered = $derived(flagStore.flags.filter(f => {
     const q = search.toLowerCase()
     const matchSearch = f.key.includes(q) || f.description.toLowerCase().includes(q)
-    const matchFilter = filter === 'all' || (filter === 'on' && f.enabled) || (filter === 'off' && !f.enabled)
+    const matchFilter = filter === 'all' || (filter === 'on' && f.status === 'on') || (filter === 'off' && f.status === 'off')
     return matchSearch && matchFilter
   }))
 
