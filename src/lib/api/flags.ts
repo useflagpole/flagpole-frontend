@@ -7,7 +7,6 @@ export interface FlagDTO {
   key:         string
   description: string
   type:        'bool' | 'string' | 'number'
-  status:      'on' | 'off'
   createdAt:   string
   updatedAt:   string
   envCount:    number
