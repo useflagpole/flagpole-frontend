@@ -1,9 +1,11 @@
 <script lang="ts">
   import Nav from './lib/Nav.svelte';
   import CodeMock from './lib/CodeMock.svelte';
+  import DeployCompare from './lib/DeployCompare.svelte';
   import Milestone from './lib/Milestone.svelte';
   import Summit from './lib/Summit.svelte';
   import Footer from './lib/Footer.svelte';
+  import HeroScene from './lib/HeroScene.svelte';
 </script>
 
 <Nav />
@@ -11,25 +13,23 @@
 <main>
   <!-- HERO -->
   <section class="section hero-section">
-    <video
-      class="hero-bg-video"
-      src="/heroascii.mp4"
-      autoplay
-      loop
-      muted
-      playsinline
-    ></video>
+    <HeroScene />
     <div class="page">
       <span class="eyebrow">plant your first flag</span>
       <h1>Flag it. Ramp it.<br>Roll it back instantly.</h1>
-      <p class="hero-sub">flagpole is the feature flag service we wished existed when we were three engineers and a staging server. Open source, free forever for small teams, and fast enough to call on the hot path.</p>
+      <p class="hero-sub">
+        flagpole is the feature flag service we wished existed when we were three engineers and a staging server. We designed an open source ecosystem to make it easy to use, scale and deploy.
+      </p>
       <div class="hero-ctas">
-        <a class="btn btn-accent" href="#/signup">Plant your first flag</a>
+        <a class="btn btn-accent node" href="#/signup">Plant your first flag</a>
         <a class="btn btn-ghost" href="#"><span class="mono">★ 12.4k</span></a>
         <a class="btn btn-ghost" href="#">docs →</a>
       </div>
     </div>
   </section>
+
+  <!-- DEPLOY COMPARE -->
+  <DeployCompare />
 
   <!-- STEP 01 -->
   <section class="section">
@@ -101,19 +101,6 @@
     z-index: 1;
   }
 
-  .hero-bg-video {
-    position: absolute;
-    top: 0;
-    right: 0;
-    height: 100%;
-    width: 50%;
-    object-fit: cover;
-    object-position: left center;
-    opacity: 0.5;
-    pointer-events: none;
-    mask-image: linear-gradient(to right, transparent 0%, black 30%);
-    -webkit-mask-image: linear-gradient(to right, transparent 0%, black 30%);
-  }
 
   h1 {
     font-size: clamp(44px, 6.4vw, 88px);
@@ -146,5 +133,11 @@
     color: var(--ink-3);
     font-size: 13px;
     margin-top: 32px;
+  }
+
+  .btn-accent.node {
+    background: var(--accent-dim);
+    border-color: var(--accent);
+    box-shadow: 0 0 20px 3px rgba(229, 90, 1, 0.18), 0 0 6px rgba(229, 90, 1, 0.12);
   }
 </style>

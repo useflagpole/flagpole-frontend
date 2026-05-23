@@ -16,6 +16,8 @@
   $effect(() => {
     if (authHashes.has(hash) && session.isAuthenticated) {
       window.location.hash = '#/app'
+    } else if (!authHashes.has(hash) && !session.isAuthenticated) {
+      window.location.hash = '#/login'
     }
   })
 
@@ -24,6 +26,6 @@
 
 {#if authHashes.has(hash) && !session.isAuthenticated}
   <Auth initialTab={hash === '#/signup' ? 'signup' : 'login'} />
-{:else if !authHashes.has(hash)}
+{:else if !authHashes.has(hash) && session.isAuthenticated}
   <Page />
 {/if}
