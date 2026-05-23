@@ -7,8 +7,10 @@ export interface FlagDTO {
   key:         string
   description: string
   type:        'bool' | 'string' | 'number'
+  status:      'on' | 'off'
   createdAt:   string
   updatedAt:   string
+  envCount:    number
 }
 
 export interface FlagDetailDTO {
@@ -16,7 +18,7 @@ export interface FlagDetailDTO {
   key:              string
   type:             'bool' | 'string' | 'number'
   description:      string
-  status:           string
+  status:           'on' | 'off' | ''
   rollout:          number
   rolloutEnabled:   boolean
   defaultValue:     boolean | string | number | null
@@ -31,6 +33,7 @@ export interface SegmentOverrideDTO {
   value:     boolean | string | number
   enabled:   boolean
   priority:  number
+  userCount: number
 }
 
 export interface SegmentDTO {

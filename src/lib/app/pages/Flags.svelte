@@ -28,7 +28,7 @@
   const filtered = $derived(flagStore.flags.filter(f => {
     const q = search.toLowerCase()
     const matchSearch = f.key.includes(q) || f.description.toLowerCase().includes(q)
-    const matchFilter = filter === 'all' || (filter === 'on' && f.enabled) || (filter === 'off' && !f.enabled)
+    const matchFilter = filter === 'all' || (filter === 'on' && f.status === 'on') || (filter === 'off' && f.status === 'off')
     return matchSearch && matchFilter
   }))
 
@@ -94,7 +94,7 @@
       {:else}
         {#each filtered as f, i}
           <button class="flag-row" class:last={i === filtered.length - 1} onclick={() => onSelectFlag(f.id)}>
-            <span class="pill" class:on={f.enabled}>{f.enabled ? 'on' : 'off'}</span>
+            <span class="pill" class:on={f.envCount > 0}>{f.envCount > 0 ? `${f.envCount} ENV${f.envCount !== 1 ? 'S' : ''}` : 'off'}</span>
             <div class="flag-info">
               <span class="flag-key mono">{f.key}</span>
               <span class="flag-name">{f.description}</span>

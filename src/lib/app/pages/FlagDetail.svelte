@@ -1,9 +1,10 @@
 <script lang="ts">
   import { orgStore } from '../../org.svelte'
   import { projectStore } from '../../project.svelte'
-  import { getFlagDetail, getFlagAudit, createFlagEnvConfig, listSegments, type FlagDetailDTO, type SegmentDTO, type AuditLogDTO } from '../../api/flags'
+  import { notify } from '../../toasts.svelte'
+  import { getFlagDetail, getFlagAudit, createFlagEnvConfig, listSegments, type FlagDetailDTO, type SegmentDTO } from '../../api/flags'
   import { listEnvironments } from '../../api/environments'
-  import EvalChart from '../EvalChart.svelte'
+  import { type AuditLogDTO } from '../../api/projects'
   import ActionBadge from '../ActionBadge.svelte'
   import FlagIcon from '../FlagIcon.svelte'
   import FlagConfigFlow from '../FlagConfigFlow.svelte'
@@ -21,22 +22,12 @@
   let flag = $state<FlagDetailDTO | null>(null)
   let segments = $state<SegmentDTO[]>([])
   let flagAudit = $state<AuditLogDTO[]>([])
-  let chartSeries = $state<number[]>([])
   let envs = $state<string[]>([])
   let env = $state('')
   let configExists = $state(false)
 
   let loading = $state(false)
   let auditLoading = $state(false)
-
-  function sparkline(peak: number, noise: number): number[] {
-    return Array.from({ length: 28 }, (_, i) => {
-      const base = Math.sin(i / 4) * 0.3 + 0.6
-      return Math.max(0, Math.round(peak * base * (0.85 + Math.random() * noise)))
-    })
-  }
-
-  const MOCK_EVAL_SERIES: Record<string, number[]> = {}
 
   async function loadFlag() {
     if (!activeFlag || !orgId || !projId || !env) return
@@ -45,7 +36,6 @@
     if (r.ok) {
       flag = r.data
       configExists = r.data.status !== ''
-      chartSeries = MOCK_EVAL_SERIES[r.data.key] ?? []
     }
     loading = false
   }
@@ -97,7 +87,16 @@
     loadAudit()
   }
 
+  let prevProject = $state('')
+
   $effect(() => {
+    const proj = activeProject
+    if (prevProject && proj && prevProject !== proj) {
+      nav('flags')
+      return
+    }
+    prevProject = proj
+
     if (activeFlag) {
       flag = null
       configExists = false
@@ -139,26 +138,28 @@
       </div>
     </div>
   </div>
-{:else if flag || loading}
+{:else if flag}
   <div class="page-shell">
     <header class="page-header">
       <span class="eyebrow">{projectName}</span>
       <div class="title-row">
         <button class="back-btn" onclick={() => nav('flags')}>←</button>
-        <h1><span class="page-icon"><FlagIcon size={22} /></span> <span class="title-prefix">flags /</span> <span class="mono">{flag ? flag.key : activeFlag}</span></h1>
+        <h1><span class="page-icon"><FlagIcon size={22} /></span> <span class="title-prefix">flags /</span> <span class="mono">{flag.key}</span></h1>
       </div>
     </header>
 
-    <div class="content">
-      <div class="env-tabs">
-        {#each envs as e}
-          <button class="env-tab" class:active={env === e} onclick={() => switchEnv(e)}>{e}</button>
-        {/each}
-      </div>
+    <div class="env-tabs">
+      {#each envs as e}
+        <button class="env-tab" class:active={env === e} onclick={() => switchEnv(e)}>{e}</button>
+      {/each}
+    </div>
 
-      {#if loading}
+    {#if loading}
+      <div class="padded-content">
         <div class="empty mono" style="padding: 64px; color: var(--ink-3)">Loading…</div>
-      {:else if !configExists}
+      </div>
+    {:else if !configExists}
+      <div class="padded-content">
         <div class="config-missing-state">
           <div class="missing-icon">◌</div>
           <h2>Not configured for {env}</h2>
@@ -167,7 +168,9 @@
             Create configuration for {env}
           </button>
         </div>
-      {:else}
+      </div>
+    {:else}
+      <div class="padded-content">
         <FlagConfigFlow
           flag={{
             key: flag.key,
@@ -214,10 +217,10 @@
             {/each}
           {/if}
         </div>
-      {/if}
-    </div>
+      </div>
+    {/if}
   </div>
-{:else}
+{:else if loading}
   <div class="page-shell">
     <div class="empty mono" style="padding: 64px; color: var(--ink-3)">Flag not found</div>
   </div>
@@ -232,7 +235,6 @@
   .page-header {
     padding: 32px 32px 20px;
     border-bottom: 1px solid var(--line);
-    margin-bottom: 32px;
     display: flex;
     flex-direction: column;
   }
@@ -286,15 +288,19 @@
     font-weight: 400;
   }
 
-  .content {
+.padded-content {
     padding: 0 32px 64px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
   }
 
   .env-tabs {
     display: flex;
     gap: 4px;
-    margin-bottom: 24px;
     border-bottom: 1px solid var(--line);
+    padding: 0 32px;
+    margin-bottom: 24px;
   }
 
   .env-tab {
