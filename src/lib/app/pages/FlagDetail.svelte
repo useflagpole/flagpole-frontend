@@ -3,7 +3,7 @@
   import { projectStore } from '../../project.svelte'
   import { notify } from '../../toasts.svelte'
   import { getFlagDetail, getFlagAudit, createFlagEnvConfig, listSegments, type FlagDetailDTO, type SegmentDTO } from '../../api/flags'
-  import { listEnvironments } from '../../api/environments'
+  import { listEnvironments, type EnvironmentDTO } from '../../api/environments'
   import { type AuditLogDTO } from '../../api/projects'
   import ActionBadge from '../ActionBadge.svelte'
   import FlagIcon from '../FlagIcon.svelte'
@@ -22,8 +22,8 @@
   let flag = $state<FlagDetailDTO | null>(null)
   let segments = $state<SegmentDTO[]>([])
   let flagAudit = $state<AuditLogDTO[]>([])
-  let envs = $state<string[]>([])
-  let env = $state('')
+  let envs = $state<EnvironmentDTO[]>([])
+  let env = $state<EnvironmentDTO | null>(null)
   let configExists = $state(false)
 
   let loading = $state(false)
@@ -32,7 +32,7 @@
   async function loadFlag() {
     if (!activeFlag || !orgId || !projId || !env) return
     loading = true
-    const r = await getFlagDetail(orgId, projId, activeFlag, env)
+    const r = await getFlagDetail(orgId, projId, activeFlag, env.id)
     if (r.ok) {
       flag = r.data
       configExists = r.data.status !== ''
@@ -60,7 +60,7 @@
   async function loadAudit() {
     if (!orgId || !projId || !activeFlag || !env) return
     auditLoading = true
-    const r = await getFlagAudit(orgId, projId, activeFlag, env)
+    const r = await getFlagAudit(orgId, projId, activeFlag, env.name)
     auditLoading = false
     if (r.ok) flagAudit = r.data.slice(0, 5)
     else flagAudit = []
@@ -68,10 +68,10 @@
 
   async function createConfigForEnv() {
     if (!activeFlag || !orgId || !projId || !env) return
-    const r = await createFlagEnvConfig(orgId, projId, activeFlag, env)
+    const r = await createFlagEnvConfig(orgId, projId, activeFlag, env.id)
     if (r.ok) {
       configExists = true
-      notify.success('Config created', `Configuration created for ${env}`)
+      notify.success('Config created', `Configuration created for ${env.name}`)
       loadFlag()
       loadAudit()
     } else {
@@ -79,7 +79,7 @@
     }
   }
 
-  function switchEnv(e: string) {
+  function switchEnv(e: EnvironmentDTO) {
     env = e
     configExists = false
     loading = true
@@ -100,7 +100,7 @@
     if (activeFlag) {
       flag = null
       configExists = false
-      env = ''
+      env = null
       loadSegments()
       loadEnvs()
     }
@@ -150,7 +150,7 @@
 
     <div class="env-tabs">
       {#each envs as e}
-        <button class="env-tab" class:active={env === e} onclick={() => switchEnv(e)}>{e}</button>
+        <button class="env-tab" class:active={env?.id === e.id} onclick={() => switchEnv(e)}>{e.name}</button>
       {/each}
     </div>
 
@@ -162,10 +162,10 @@
       <div class="padded-content">
         <div class="config-missing-state">
           <div class="missing-icon">◌</div>
-          <h2>Not configured for {env}</h2>
-          <p>This flag has no configuration for the <strong>{env}</strong> environment.</p>
+          <h2>Not configured for {env?.name}</h2>
+          <p>This flag has no configuration for the <strong>{env?.name}</strong> environment.</p>
           <button class="btn btn-primary" onclick={createConfigForEnv}>
-            Create configuration for {env}
+            Create configuration for {env?.name}
           </button>
         </div>
       </div>
@@ -190,7 +190,7 @@
               priority: o.priority,
             })),
           }}
-          env={env}
+          envId={env?.id ?? 0}
           segments={segments.map(s => ({ id: String(s.id), name: s.name }))}
           orgId={orgId}
           projectId={projId}
@@ -200,7 +200,7 @@
 
         <div class="panel">
           <div class="panel-bar">
-            <span>Audit trail · {flag.key} · {env}</span>
+            <span>Audit trail · {flag.key} · {env?.name}</span>
           </div>
           {#if auditLoading}
             <div class="empty mono">Loading…</div>
