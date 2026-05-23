@@ -8,8 +8,17 @@ function parseJwt(token: string): Record<string, unknown> {
   }
 }
 
+function isInvalid(token: string): boolean {
+  if (token.split('.').length !== 3) return true
+  const exp = parseJwt(token)['exp'] as number | undefined
+  return exp !== undefined && Date.now() / 1000 >= exp
+}
+
 function createSession() {
-  let token = $state<string | null>(localStorage.getItem(TOKEN_KEY))
+  const stored = localStorage.getItem(TOKEN_KEY)
+  if (stored && isInvalid(stored)) localStorage.removeItem(TOKEN_KEY)
+
+  let token = $state<string | null>(stored && !isInvalid(stored) ? stored : null)
 
   const claims = $derived(token ? parseJwt(token) : {})
 

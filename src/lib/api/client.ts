@@ -29,6 +29,11 @@ async function request<T>(path: string, method: Method, body?: unknown): Promise
 
   if (res.ok) return { ok: true, data: (json?.data ?? null) as T }
 
+  if (res.status === 401) {
+    session.clear()
+    window.location.hash = '#/login'
+  }
+
   return { ok: false, status: res.status, message: json?.error ?? 'Something went wrong.', fields: json?.fields ?? undefined }
 }
 
