@@ -55,14 +55,14 @@ export interface SegmentRuleDTO {
 }
 
 export interface FlagEnvironmentConfigDTO {
-  id:               number
-  flagId:           number
-  environmentName:  string
-  enabled:          boolean
-  rolloutEnabled:   boolean
+  id:                number
+  flagId:            number
+  environmentId:     number
+  enabled:           boolean
+  rolloutEnabled:    boolean
   rolloutPercentage: number
-  defaultValue:     boolean | string | number
-  servedValue:      boolean | string | number
+  defaultValue:      boolean | string | number
+  servedValue:       boolean | string | number
 }
 
 export interface SegmentOperatorMeta {
@@ -109,8 +109,8 @@ export function listFlags(orgId: number, projectId: number): Promise<ApiResult<F
   return api.get(`/organizations/${orgId}/projects/${projectId}/flags`)
 }
 
-export function getFlagDetail(orgId: number, projectId: number, flagId: number, env: string): Promise<ApiResult<FlagDetailDTO>> {
-  return api.get(`/organizations/${orgId}/projects/${projectId}/flags/${flagId}?env=${encodeURIComponent(env)}`)
+export function getFlagDetail(orgId: number, projectId: number, flagId: number, envId: number): Promise<ApiResult<FlagDetailDTO>> {
+  return api.get(`/organizations/${orgId}/projects/${projectId}/flags/${flagId}?env_id=${envId}`)
 }
 
 export function createFlag(orgId: number, projectId: number, payload: {
@@ -137,11 +137,11 @@ export function getFlagAudit(orgId: number, projectId: number, flagId: number, e
   return api.get(`/organizations/${orgId}/projects/${projectId}/flags/${flagId}/audit${qs}`)
 }
 
-export function createFlagEnvConfig(orgId: number, projectId: number, flagId: number, env: string): Promise<ApiResult<FlagEnvironmentConfigDTO>> {
-  return api.post(`/organizations/${orgId}/projects/${projectId}/flags/${flagId}/config?env=${encodeURIComponent(env)}`)
+export function createFlagEnvConfig(orgId: number, projectId: number, flagId: number, envId: number): Promise<ApiResult<FlagEnvironmentConfigDTO>> {
+  return api.post(`/organizations/${orgId}/projects/${projectId}/flags/${flagId}/config?env_id=${envId}`)
 }
 
-export function updateFlagConfig(orgId: number, projectId: number, flagId: number, env: string, payload: {
+export function updateFlagConfig(orgId: number, projectId: number, flagId: number, envId: number, payload: {
   enabled?: boolean
   rolloutEnabled?: boolean
   rolloutPercentage?: number
@@ -149,7 +149,7 @@ export function updateFlagConfig(orgId: number, projectId: number, flagId: numbe
   servedValue?: unknown
   overrides?: { segmentId: number; value: unknown; enabled: boolean; priority: number }[]
 }): Promise<ApiResult<string>> {
-  return api.patch(`/organizations/${orgId}/projects/${projectId}/flags/${flagId}/config?env=${encodeURIComponent(env)}`, payload)
+  return api.patch(`/organizations/${orgId}/projects/${projectId}/flags/${flagId}/config?env_id=${envId}`, payload)
 }
 
 export function listSegments(orgId: number, projectId: number): Promise<ApiResult<SegmentDTO[]>> {

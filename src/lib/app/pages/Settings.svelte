@@ -2,16 +2,17 @@
   import { projectStore } from '../../project.svelte'
   import { orgStore } from '../../org.svelte'
   import { userStore } from '../../user.svelte'
-  import { sdkKeys } from '../data'
   import { updateProject, archiveProject } from '../../api/projects'
   import {
     listEnvironments,
     createEnvironment,
     renameEnvironment,
     deleteEnvironment,
+    type EnvironmentDTO,
   } from '../../api/environments'
   import ModalDeleteEnv from '../ModalDeleteEnv.svelte'
   import ModalArchiveProject from '../ModalArchiveProject.svelte'
+  import EnvAccessPanel from '../EnvAccessPanel.svelte'
   import { notify } from '../../toasts.svelte'
 
   let { activeProject, projectName }: { activeProject: string; projectName: string } = $props()
@@ -20,6 +21,7 @@
 
   const ownerName = $derived(userStore.username)
   const isAdmin   = $derived(orgStore.activeOrg?.role === 'admin')
+  const userEmail = $derived(userStore.email)
 
   let nameInput    = $state('')
   let originalName = $state('')
@@ -46,7 +48,7 @@
   const orgId  = $derived(orgStore.activeId)
   const projId = $derived(proj?.id ?? 0)
 
-  let envs        = $state<string[]>([])
+  let envs        = $state<EnvironmentDTO[]>([])
   let envsLoading = $state(false)
   let envError    = $state<string | null>(null)
 
@@ -61,54 +63,57 @@
     }
   })
 
-  let editingEnv = $state<string | null>(null)
-  let editVal    = $state('')
-  let editError  = $state<string | null>(null)
-
-  const startEdit = (name: string) => { editingEnv = name; editVal = name; editError = null }
-  const cancelEdit = () => { editingEnv = null; editVal = ''; editError = null }
-
-  const saveRename = async (oldName: string) => {
-    if (!orgId || !projId) return
-    const r = await renameEnvironment(orgId, projId, oldName, editVal.trim())
+  const handleCreateEnv = async (name: string): Promise<EnvironmentDTO[] | null> => {
+    if (!orgId || !projId) return null
+    const r = await createEnvironment(orgId, projId, name)
     if (r.ok) {
       envs = r.data
-      editingEnv = null
-      notify.success('Environment renamed', `"${oldName}" → "${editVal.trim()}"`)
+      notify.success('Environment created', `"${name}" is ready to use.`)
+      return r.data
+    }
+    notify.error('Create failed', r.message)
+    return null
+  }
+
+  // rename flow
+  let renamingEnv  = $state<EnvironmentDTO | null>(null)
+  let renameVal    = $state('')
+  let renameError  = $state<string | null>(null)
+  let renameSaving = $state(false)
+
+  const handleRenameEnv = (env: EnvironmentDTO) => {
+    renamingEnv = env; renameVal = env.name; renameError = null
+  }
+
+  const submitRename = async () => {
+    if (!orgId || !projId || !renamingEnv || !renameVal.trim()) return
+    renameSaving = true; renameError = null
+    const r = await renameEnvironment(orgId, projId, renamingEnv.id, renameVal.trim())
+    renameSaving = false
+    if (r.ok) {
+      const old = renamingEnv.name
+      envs = r.data
+      notify.success('Environment renamed', `"${old}" → "${renameVal.trim()}"`)
+      renamingEnv = null
     } else {
-      editError = r.message
+      renameError = r.message
       notify.error('Rename failed', r.message)
     }
   }
 
-  let adding      = $state(false)
-  let newEnvName  = $state('')
-  let addError    = $state<string | null>(null)
+  // delete flow
+  let deletingEnv = $state<EnvironmentDTO | null>(null)
 
-  const submitAdd = async () => {
-    if (!orgId || !projId || !newEnvName.trim()) return
-    const name = newEnvName.trim()
-    const r = await createEnvironment(orgId, projId, name)
-    if (r.ok) {
-      envs = r.data
-      adding = false
-      newEnvName = ''
-      notify.success('Environment created', `"${name}" is ready to use.`)
-    } else {
-      addError = r.message
-      notify.error('Create failed', r.message)
-    }
-  }
-
-  let deletingEnv = $state<string | null>(null)
+  const handleDeleteEnv = (env: EnvironmentDTO) => { deletingEnv = env }
 
   const removeEnv = async (): Promise<string | null> => {
     if (!orgId || !projId || !deletingEnv) return null
-    const r = await deleteEnvironment(orgId, projId, deletingEnv)
+    const r = await deleteEnvironment(orgId, projId, deletingEnv.id)
     if (r.ok) { envs = r.data; return null }
     return r.message
   }
 
+  // archive
   let showArchiveModal = $state(false)
 
   const doArchive = async (): Promise<string | null> => {
@@ -125,13 +130,6 @@
       notify.error('Archive failed', r.message)
     }
     return r.message
-  }
-
-  let copied = $state<string | null>(null)
-  const copyKey = (id: string, val: string) => {
-    navigator.clipboard?.writeText(val).catch(() => {})
-    copied = id
-    setTimeout(() => { copied = null }, 1800)
   }
 </script>
 
@@ -176,90 +174,22 @@
         </div>
       </div>
 
-      <div class="panel">
-        <div class="panel-bar">
-          <span>Environments <span class="env-count">{envs.length} / 5</span></span>
-          {#if !adding && envs.length < 5}
-            <button class="btn btn-ghost btn-sm" onclick={() => { adding = true; addError = null }}>+ Add environment</button>
-          {/if}
-        </div>
-        <div class="env-list">
-          {#if envsLoading}
-            <div class="env-empty mono">Loading…</div>
-          {:else if envError}
-            <div class="env-empty mono" style="color:#e07070">{envError}</div>
-          {:else}
-            {#each envs as e}
-              <div class="env-row">
-                <div class="env-dot" class:prod={e === 'production'}></div>
-                {#if editingEnv === e}
-                  <input
-                    class="env-input mono"
-                    bind:value={editVal}
-                    onkeydown={ev => { if (ev.key === 'Enter') saveRename(e); if (ev.key === 'Escape') cancelEdit() }}
-                    autofocus
-                  />
-                  {#if editError}<span class="inline-err mono">{editError}</span>{/if}
-                  <button class="btn btn-primary btn-sm" onclick={() => saveRename(e)}>Save</button>
-                  <button class="btn btn-ghost btn-sm" onclick={cancelEdit}>Cancel</button>
-                {:else}
-                  <span class="env-name mono">{e}</span>
-                  <span class="tag mono">{e === 'production' ? 'protected' : 'mutable'}</span>
-                  {#if e !== 'production'}
-                    <button class="btn btn-ghost btn-sm" onclick={() => startEdit(e)}>Rename</button>
-                    <button class="btn btn-danger btn-sm" onclick={() => deletingEnv = e}>Delete</button>
-                  {/if}
-                {/if}
-              </div>
-            {/each}
-            {#if adding}
-              <div class="env-row">
-                <div class="env-dot"></div>
-                <input
-                  class="env-input mono"
-                  bind:value={newEnvName}
-                  placeholder="environment name"
-                  onkeydown={ev => { if (ev.key === 'Enter') submitAdd(); if (ev.key === 'Escape') { adding = false; newEnvName = '' } }}
-                  autofocus
-                />
-                {#if addError}<span class="inline-err mono">{addError}</span>{/if}
-                <button class="btn btn-primary btn-sm" onclick={submitAdd}>Add</button>
-                <button class="btn btn-ghost btn-sm" onclick={() => { adding = false; newEnvName = ''; addError = null }}>Cancel</button>
-              </div>
-            {/if}
-          {/if}
-        </div>
-      </div>
-
-      <div class="panel">
-        <div class="panel-bar">
-          <span>SDK keys</span>
-          <button class="btn btn-ghost btn-sm">+ Create key</button>
-        </div>
-        <div>
-          {#each sdkKeys as k, i}
-            <div class="key-row" class:last={i === sdkKeys.length - 1}>
-              <div class="key-header">
-                <div>
-                  <div class="key-label">{k.label}</div>
-                  <div class="key-tags">
-                    <span class="tag mono">{k.env}</span>
-                    <span class="tag mono">{k.type}</span>
-                  </div>
-                </div>
-                <div class="key-actions">
-                  <span class="last-used mono">last used {k.lastUsed}</span>
-                  <button class="btn btn-ghost btn-sm" onclick={() => copyKey(k.id, k.key)}>
-                    {copied === k.id ? '✓ Copied' : 'Copy'}
-                  </button>
-                  <button class="btn btn-danger btn-sm">Revoke</button>
-                </div>
-              </div>
-              <div class="key-val mono">{k.key}</div>
-            </div>
-          {/each}
-        </div>
-      </div>
+      {#if envsLoading}
+        <div class="panel"><div class="panel-body"><div class="env-empty mono">Loading environments…</div></div></div>
+      {:else if envError}
+        <div class="panel"><div class="panel-body"><div class="env-empty mono" style="color:#e07070">{envError}</div></div></div>
+      {:else}
+        <EnvAccessPanel
+          {orgId}
+          {projId}
+          {envs}
+          currentUserEmail={userEmail}
+          onCreateEnv={handleCreateEnv}
+          onRenameEnv={handleRenameEnv}
+          onDeleteEnv={handleDeleteEnv}
+          onEnvsChanged={(updated) => { envs = updated }}
+        />
+      {/if}
 
       <div class="panel danger-panel">
         <div class="panel-bar">
@@ -288,9 +218,37 @@
   </div>
 </div>
 
+{#if renamingEnv}
+  <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
+  <div class="rename-overlay" onclick={(e) => { if (e.target === e.currentTarget) renamingEnv = null }}>
+    <div class="rename-modal" role="dialog" aria-modal="true">
+      <div class="rename-header">
+        <div class="rename-title">Rename environment</div>
+        <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
+        <span class="rename-close" onclick={() => renamingEnv = null}>×</span>
+      </div>
+      <div class="rename-body">
+        <input
+          class="rename-input mono"
+          bind:value={renameVal}
+          placeholder="environment name"
+          onkeydown={(ev) => { if (ev.key === 'Enter') submitRename(); if (ev.key === 'Escape') renamingEnv = null }}
+        />
+        {#if renameError}<div class="rename-error mono">{renameError}</div>{/if}
+        <div class="rename-actions">
+          <button class="btn btn-ghost btn-sm" onclick={() => renamingEnv = null}>Cancel</button>
+          <button class="btn btn-primary btn-sm" disabled={!renameVal.trim() || renameSaving} onclick={submitRename}>
+            {renameSaving ? 'Saving…' : 'Save'}
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+{/if}
+
 {#if deletingEnv}
   <ModalDeleteEnv
-    envName={deletingEnv}
+    envName={deletingEnv.name}
     projectName={proj?.name ?? ''}
     onConfirm={removeEnv}
     onClose={() => deletingEnv = null}
@@ -346,7 +304,7 @@
   }
 
   .settings-col {
-    max-width: 760px;
+    max-width: 880px;
     display: flex;
     flex-direction: column;
     gap: 16px;
@@ -433,127 +391,87 @@
     color: var(--ink-2);
   }
 
-  .env-list {
-    padding: 14px 18px;
-  }
-
-  .env-row {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 10px 0;
-    border-bottom: 1px solid var(--line);
-  }
-
-  .env-row:last-child {
-    border-bottom: none;
-  }
-
-  .env-dot {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    background: var(--ink-4);
-  }
-
-  .env-dot.prod {
-    background: var(--accent);
-  }
-
-  .env-count {
-    color: var(--ink-4);
-    margin-left: 6px;
-  }
-
   .env-empty {
-    font-size: 12px;
+    font: 400 12px 'Geist Mono', ui-monospace, monospace;
     color: var(--ink-3);
     padding: 16px 0;
     text-align: center;
   }
 
-  .env-input {
-    flex: 1;
-    background: var(--bg-3);
+  .rename-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 200;
+    background: rgba(0, 0, 0, 0.55);
+    backdrop-filter: blur(2px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+  }
+
+  .rename-modal {
+    width: 100%;
+    max-width: 400px;
+    background: var(--bg-2);
     border: 1px solid var(--line-2);
-    border-radius: 5px;
-    color: var(--ink);
-    font-size: 12px;
-    padding: 5px 8px;
-    outline: none;
-    min-width: 0;
+    border-radius: 10px;
+    box-shadow: 0 24px 80px rgba(0, 0, 0, 0.6);
+    overflow: hidden;
   }
 
-  .inline-err {
-    font-size: 11px;
-    color: #e07070;
-  }
-
-  .env-name {
-    font-size: 13px;
-    font-weight: 500;
-    color: var(--ink);
-    flex: 1;
-  }
-
-  .tag {
-    font: 500 10.5px 'Geist Mono', ui-monospace, monospace;
-    color: var(--ink-3);
-    padding: 2px 6px;
-    border: 1px solid var(--line);
-    border-radius: 4px;
-    background: var(--bg-3);
-  }
-
-  .key-row {
+  .rename-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
     padding: 14px 18px;
     border-bottom: 1px solid var(--line);
   }
 
-  .key-row.last {
-    border-bottom: none;
-  }
-
-  .key-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: 8px;
-  }
-
-  .key-label {
+  .rename-title {
     font-weight: 500;
-    font-size: 13.5px;
+    font-size: 14px;
     color: var(--ink);
   }
 
-  .key-tags {
-    display: flex;
-    gap: 6px;
-    margin-top: 5px;
-  }
-
-  .key-actions {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
-
-  .last-used {
-    font-size: 11px;
+  .rename-close {
     color: var(--ink-3);
+    font-size: 18px;
+    cursor: pointer;
+    padding: 0 4px;
+    user-select: none;
   }
 
-  .key-val {
-    font-size: 12px;
-    color: var(--ink-3);
-    background: var(--bg-3);
+  .rename-close:hover { color: var(--ink); }
+
+  .rename-body { padding: 16px 18px; }
+
+  .rename-input {
+    width: 100%;
+    box-sizing: border-box;
+    background: var(--bg);
     border: 1px solid var(--line);
-    border-radius: 5px;
-    padding: 7px 10px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    border-radius: 6px;
+    color: var(--ink);
+    font: 400 13px 'Geist Mono', ui-monospace, monospace;
+    padding: 9px 12px;
+    outline: none;
+    margin-bottom: 4px;
+  }
+
+  .rename-input:focus { border-color: var(--line-2); }
+
+  .rename-error {
+    font: 400 11.5px 'Geist Mono', ui-monospace, monospace;
+    color: #e07070;
+    margin-bottom: 10px;
+  }
+
+  .rename-actions {
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
+    margin-top: 14px;
   }
 
   .btn {

@@ -16,7 +16,7 @@
 
   let {
     flag,
-    env,
+    envId,
     segments = [],
     orgId,
     projectId,
@@ -40,7 +40,7 @@
         priority: number
       }[]
     }
-    env: string
+    envId: number
     segments?: { id: string; name: string }[]
     orgId: number
     projectId: number
@@ -91,7 +91,7 @@
     }))
 
     try {
-      const r = await updateFlagConfig(orgId, projectId, flagId, env, {
+      const r = await updateFlagConfig(orgId, projectId, flagId, envId, {
         enabled: isOn,
         rolloutEnabled,
         rolloutPercentage: rollout,
